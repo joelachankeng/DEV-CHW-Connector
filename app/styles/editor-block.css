@@ -1,0 +1,147 @@
+/* Global */
+.codex-editor {
+  transition-duration: 0.3s;
+}
+
+.comment-editor .ce-popover.ce-popover--opened {
+  bottom: 0;
+  top: auto;
+}
+
+.codex-editor .ce-toolbar__plus {
+  background-color: #625da6;
+  color: #fff;
+}
+
+.codex-editor .ce-toolbar__plus:hover {
+  background-color: #413d70;
+}
+
+.codex-editor .ce-paragraph {
+  line-height: 18px;
+  font-weight: 400;
+  font-size: 1rem;
+}
+.codex-editor .ce-paragraph + .ce-paragraph {
+  margin-top: 0.625rem;
+}
+.codex-editor .ce-paragraph a {
+  font-weight: 600;
+  color: #625da6;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-property:
+    color,
+    background-color,
+    border-color,
+    text-decoration-color,
+    fill,
+    stroke,
+    opacity,
+    box-shadow,
+    transform,
+    filter,
+    backdrop-filter,
+    -webkit-backdrop-filter;
+  transition-duration: 0.15s;
+  text-decoration: none;
+}
+.codex-editor .ce-paragraph a:hover {
+  color: #413d70;
+  text-decoration: underline;
+}
+
+.codex-editor .ce-block__content {
+  max-width: 100%;
+}
+
+/* Image Block */
+.cdx-notify {
+  font-size: 16px !important;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.cdx-notify__cross {
+  position: relative !important;
+  opacity: 1 !important;
+}
+.cdx-notify__cross::before,
+.cdx-notify__cross::after {
+  background: #625da6 !important;
+}
+
+/* GIPHY Block */
+.codex-editor .giphy-collection {
+  display: flex;
+  width: 100%;
+  height: 300px;
+  overflow: auto;
+}
+.codex-editor .giphy-collection .column {
+  display: flex;
+  flex-direction: column;
+  margin: 0.25rem;
+  width: 100%;
+}
+.codex-editor .giphy-collection .item {
+  margin-bottom: 0.25rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.codex-editor .giphy-collection .item:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.codex-editor .giphy-collection .item > img {
+  width: 100%;
+}
+
+.codex-editor h1 {
+  font-size: 2.125rem;
+  font-weight: 700;
+}
+
+@media screen and (max-width: 768px) {
+  .codex-editor h1 {
+    font-size: 1.5rem;
+  }
+}
+
+.codex-editor h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+@media screen and (max-width: 768px) {
+  .codex-editor h2 {
+    font-size: 1.25rem;
+  }
+}
+
+.codex-editor h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+@media screen and (max-width: 768px) {
+  .codex-editor h3 {
+    font-size: 1.125rem;
+  }
+}
+
+.codex-editor h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.codex-editor h5 {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.codex-editor h6 {
+  font-size: 1rem;
+  font-weight: 700;
+}

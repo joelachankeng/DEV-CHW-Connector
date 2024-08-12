@@ -1,0 +1,8 @@
+.react-tooltip {
+  border: 2px solid #413d70;
+  background: #fff !important;
+  color: #032525 !important;
+  font-weight: 500;
+  box-shadow: 1px 1px 3px 1px #413d70;
+  opacity: 1 !important;
+}

@@ -1,14 +1,22 @@
 {
   "exclude": ["./cypress"],
-  "include": ["remix.env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": [
+    "./.eslintrc.cjs",
+    "custom.d.ts",
+    "remix.env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "app/servers/apolloClient.js"
+  ],
   "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ES2019"],
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
     "isolatedModules": true,
     "esModuleInterop": true,
     "jsx": "react-jsx",
-    "moduleResolution": "node",
+    // "module": "CommonJS",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "target": "ES2019",
+    "target": "ES2020",
     "strict": true,
     "baseUrl": ".",
     "paths": {
@@ -19,6 +27,7 @@
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
+    "module": "ES2020" // <==== added this, so it will compile to ES modules, not CommonJS
   },
   // Used by Cypress.config.ts
   "ts-node": {
@@ -29,7 +38,7 @@
       // compilerOptions specified here will override those declared below,
       // but *only* in ts-node.  Useful if you want ts-node and tsc to use
       // different options with a single tsconfig.json.
-      "module": "ES2015", // <==== added this, so it will compile to ES modules, not CommonJS
+      "module": "ES2015" // <==== added this, so it will compile to ES modules, not CommonJS
     }
   }
 }

@@ -1,0 +1,13 @@
+{
+  "eslint.lintTask.enable": true,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "tailwindCSS.classAttributes": [
+    "class",
+    "classes",
+    "className",
+    "ngClass",
+    ".*Styles",
+    ".*Classes",
+    ".*ClassNames"
+  ]
+}

@@ -1,105 +1,54 @@
-import { createCookieSessionStorage, redirect } from "@remix-run/node";
 import invariant from "tiny-invariant";
-import { getProfileById } from "./models/user.server";
 
 invariant(
-  process.env.SESSION_SECRET,
-  "SESSION_SECRET must be set in your environment variables."
+  process.env.SESSION_SECRET ? process.env.SESSION_SECRET.length === 32 : false,
+  "SESSION_SECRET must be 32 characters long",
 );
+invariant(
+  process.env.SESSION_AES_IV ? process.env.SESSION_AES_IV.length === 16 : false,
+  "SESSION_AES_IV must be 16 characters long",
+);
+invariant(process.env.SESSION_AES_IV, "SESSION_AES_IV");
+invariant(process.env.MC_DOMAIN, "MC_DOMAIN");
+invariant(process.env.MC_CLIENT_ID, "MC_CLIENT_ID");
+invariant(process.env.MC_CLIENT_SECRET, "MC_CLIENT_SECRET");
+invariant(process.env.JWT_URL, "JWT_URL");
+invariant(process.env.JWT_AUTH_KEY, "JWT_AUTH_KEY");
+invariant(process.env.GRAPHQL_URL, "GRAPHQL_URL");
+invariant(process.env.WP_REST_URL, "WP_REST_URL");
+invariant(process.env.WP_ADMIN_USERNAME, "WP_ADMIN_USERNAME");
+invariant(process.env.WP_ADMIN_PASSWORD, "WP_ADMIN_PASSWORD");
+invariant(process.env.MAILGUN_API_KEY, "MAILGUN_API_KEY");
+invariant(process.env.MAILGUN_DOMAIN, "MAILGUN_DOMAIN");
+invariant(process.env.MAILGUN_FROM, "MAILGUN_FROM");
 
-export const sessionStorage = createCookieSessionStorage({
-  cookie: {
-    name: "__session",
-    httpOnly: true,
-    maxAge: 60,
-    path: "/",
-    sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET],
-    secure: process.env.NODE_ENV === "production",
+export const APP_KEYS = {
+  PRIVATE: {
+    // NEVER expose these keys to the client
+    SESSION_SECRET: process.env.SESSION_SECRET,
+    SESSION_AES_IV: process.env.SESSION_AES_IV,
+    MC_CLIENT_SECRET: process.env.MC_CLIENT_SECRET,
+    JWT_URL: process.env.JWT_URL,
+    JWT_AUTH_KEY: process.env.JWT_AUTH_KEY,
+    GRAPHQL_URL: process.env.GRAPHQL_URL,
+    WP_ADMIN_USERNAME: process.env.WP_ADMIN_USERNAME,
+    WP_ADMIN_PASSWORD: process.env.WP_ADMIN_PASSWORD,
+    MAILGUN_API_KEY: process.env.MAILGUN_API_KEY,
   },
-});
+  PUBLIC: {
+    MC_CLIENT_ID: process.env.MC_CLIENT_ID,
+    MC_DOMAIN: process.env.MC_DOMAIN,
+    MAILGUN_DOMAIN: process.env.MAILGUN_DOMAIN,
+    MAILGUN_FROM: process.env.MAILGUN_FROM,
+    WP_REST_URL: process.env.WP_REST_URL,
+  },
+};
 
-const USER_SESSION_KEY = "userId";
-
-export async function getSession(request: Request) {
-  const cookie = request.headers.get("Cookie");
-  return sessionStorage.getSession(cookie);
-}
-
-export async function getUserId(request: Request) {
-  const session = await getSession(request);
-  const userId = session.get(USER_SESSION_KEY);
-
-  return userId;
-}
-
-export async function getUser(request: Request) {
-  const userId = await getUserId(request);
-  if (userId === undefined) return null;
-
-  const user = await getProfileById(userId);
-  if (user) return user;
-
-  throw await logout(request);
-}
-
-/**
- * Require a user session to get to a page. If none is found
- * redirect them to the login page. After login, take them to
- * the original page they wanted to get to.
- */
-export async function requireUserId(
-  request: Request,
-  redirectTo: string = new URL(request.url).pathname
-) {
-  const userId = await getUserId(request);
-  if (!userId) {
-    const searchParams = new URLSearchParams([["redirectTo", redirectTo]]);
-    throw redirect(`/login?${searchParams}`);
-  }
-
-  return userId;
-}
-
-export async function requireUser(request: Request) {
-  const userId = await requireUserId(request);
-  if (userId == undefined) return null;
-
-  const profile = await getProfileById(userId);
-  if (profile) return profile;
-
-  throw await logout(request);
-}
-
-export async function createUserSession({
-  request,
-  userId,
-  remember,
-  redirectTo,
-}: {
-  request: Request;
-  userId: string;
-  remember: boolean;
-  redirectTo: string;
-}) {
-  const session = await getSession(request);
-  session.set(USER_SESSION_KEY, userId);
-  return redirect(redirectTo, {
-    headers: {
-      "Set-Cookie": await sessionStorage.commitSession(session, {
-        maxAge: remember
-          ? 60 * 60 * 24 * 7 // 7 days
-          : undefined,
-      }),
-    },
-  });
-}
-
-export async function logout(request: Request) {
-  const session = await getSession(request);
-  return redirect("/", {
-    headers: {
-      "Set-Cookie": await sessionStorage.destroySession(session),
-    },
-  });
-}
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+export const APP_UPLOADS = {
+  FILE_SIZE_LIMIT: {
+    IMAGE: 2 * 1024 * 1024, // 2MB
+    ALL: MAX_FILE_SIZE,
+    VIDEO: MAX_FILE_SIZE,
+  },
+};
