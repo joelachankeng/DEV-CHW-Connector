@@ -1,6 +1,6 @@
 import { Form, Link } from "@remix-run/react";
 import { useContext, useRef, useState } from "react";
-import { APP_ROUTES } from "~/constants";
+import { APP_ROUTES, USER_ROLES } from "~/constants";
 import { AppContext } from "~/contexts/appContext";
 import { classNames } from "~/utilities/main";
 import Avatar from "../User/Avatar";
@@ -10,8 +10,9 @@ import type { OutputData } from "@editorjs/editorjs";
 import type EditorJS from "@editorjs/editorjs";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
 import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
-import type { iWP_Post_Group_Type } from "~/models/post.model";
+import type { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
 import LoadingSpinner from "../Loading/LoadingSpinner";
+import _ from "lodash";
 
 export default function PostAddNew({
   groupId,
@@ -38,13 +39,14 @@ export default function PostAddNew({
           .toggle(false)
           .then(() => {
             if ("success" in data) {
+              setErrorMessage("");
               editorRef.current?.clear();
               onSubmit();
             }
 
             if ("error" in data) {
               setErrorMessage(
-                "An error occurred while creating the post. Please try again.",
+                `An error occurred while creating the post: ${data.error} Please try again.`,
               );
             }
           })
@@ -69,7 +71,10 @@ export default function PostAddNew({
     setPostData(blocks);
   };
 
-  const handleSubmitNewPost = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSubmitNewPost = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    poster: iWP_Post["postFields"]["poster"] = "USER",
+  ) => {
     e.preventDefault();
     if (postData == undefined || postData.length == 0) return;
 
@@ -84,6 +89,7 @@ export default function PostAddNew({
             post: JSON.stringify({
               blocks: postData,
             }),
+            poster: poster,
           },
           "POST",
         );
@@ -182,7 +188,7 @@ export default function PostAddNew({
         )}
         <div
           className={classNames(
-            "flex justify-end",
+            "flex items-end justify-end gap-x-5 gap-y-2 max-xs:flex-col",
             durationClasses,
             collapsed ? "-mt-[4.6875rem] mr-7" : "mr-0 mt-0",
             errorMessage ? "!mt-0" : "",
@@ -191,14 +197,29 @@ export default function PostAddNew({
           {addPostFetchState !== "idle" ? (
             <LoadingSpinner className="" />
           ) : (
-            <button
-              onClick={handleSubmitNewPost}
-              type="submit"
-              disabled={collapsed || postData.length === 0}
-              className="w-full max-w-[6.875rem] cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
-            >
-              Post
-            </button>
+            <>
+              <button
+                onClick={handleSubmitNewPost}
+                type="submit"
+                disabled={collapsed || postData.length === 0}
+                className="w-full max-w-[6.875rem] cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
+              >
+                Post
+              </button>
+              {appContext.User &&
+                appContext.User.roles.nodes.find(
+                  (n) => n.name === USER_ROLES.ADMIN,
+                ) && (
+                  <button
+                    onClick={(e) => handleSubmitNewPost(e, "GROUP")}
+                    type="submit"
+                    disabled={collapsed || postData.length === 0}
+                    className="cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
+                  >
+                    Post as {_.capitalize(groupType)}
+                  </button>
+                )}
+            </>
           )}
         </div>
       </Form>

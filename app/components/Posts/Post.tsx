@@ -170,18 +170,23 @@ export default function Post({ post }: { post: iWP_Post }) {
     setAction(undefined);
   }, [fetcher.data, fetcher.state]);
 
-  const getGroup = (): { name: string; url: string } => {
+  const getGroup = (): { name: string; url: string; imageUrl: string } => {
     const defaultGroup = {
       name: "",
       url: ``,
+      imageUrl: "",
     };
 
     if (updatedPost.postFields.community) {
       defaultGroup.name = updatedPost.postFields.community.node.title;
       defaultGroup.url = `${APP_ROUTES.COMMUNITIES}/${updatedPost.postFields.community.node.databaseId}`;
+      defaultGroup.imageUrl =
+        updatedPost.postFields.community.node.featuredImage.node.mediaItemUrl;
     } else if (updatedPost.postFields.network) {
       defaultGroup.name = updatedPost.postFields.network.node.title;
       defaultGroup.url = `${APP_ROUTES.CHW_NETWORKS}/${updatedPost.postFields.network.node.databaseId}`;
+      defaultGroup.imageUrl =
+        updatedPost.postFields.network.node.featuredImage.node.mediaItemUrl;
     }
 
     return defaultGroup;
@@ -377,6 +382,35 @@ export default function Post({ post }: { post: iWP_Post }) {
     return menuITtems;
   };
 
+  const getPostDetails = (): {
+    groupName: string;
+    groupUrl: string;
+    username: string;
+    avatarImageUrl: string;
+    avatarImageAlt: string;
+    avatarUrl: string;
+  } => {
+    const group = getGroup();
+    const username = `${updatedPost.author.node.firstName} ${updatedPost.author.node.lastName}`;
+    const defaultDetails = {
+      groupName: group.name,
+      groupUrl: group.url,
+      username,
+      avatarImageUrl: updatedPost.author.node.avatar.url || "",
+      avatarImageAlt: username,
+      avatarUrl: `${APP_ROUTES.PROFILE}/${updatedPost.author.node.databaseId}`,
+    };
+
+    if (updatedPost.postFields.poster === "GROUP") {
+      defaultDetails.username = "";
+      defaultDetails.avatarImageUrl = group.imageUrl;
+      defaultDetails.avatarImageAlt = group.name;
+      defaultDetails.avatarUrl = group.url;
+    }
+
+    return defaultDetails;
+  };
+
   if (isDeleted) {
     return <></>;
   }
@@ -445,31 +479,32 @@ export default function Post({ post }: { post: iWP_Post }) {
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-5">
               <div className="h-10 w-10">
-                <Link
-                  to={`${APP_ROUTES.PROFILE}/${updatedPost.author.node.databaseId}`}
-                >
+                <Link to={getPostDetails().avatarUrl}>
                   <Avatar
-                    src={updatedPost.author.node.avatar.url}
-                    alt={`${updatedPost.author.node.firstName} ${updatedPost.author.node.lastName}`}
+                    src={getPostDetails().avatarImageUrl}
+                    alt={getPostDetails().avatarImageAlt}
                   />
                 </Link>
               </div>
               <div className="font-semibold">
-                <Link to={getGroup().url}>
+                <Link to={getPostDetails().groupUrl}>
                   <h2 className="text-lg text-[#032525] transition duration-300 ease-in-out hover:text-chw-light-purple">
-                    {getGroup().name}
+                    {getPostDetails().groupName}
                   </h2>
                 </Link>
 
                 <p className="text-sm text-[#686867]">
-                  <Link
-                    to={`${APP_ROUTES.PROFILE}/${updatedPost.author.node.databaseId}`}
-                    className="transition duration-300 ease-in-out hover:text-chw-light-purple"
-                  >
-                    {updatedPost.author.node.firstName}{" "}
-                    {updatedPost.author.node.lastName}
-                  </Link>
-                  <span className="px-[5px] py-0">•</span>
+                  {getPostDetails().username && (
+                    <>
+                      <Link
+                        to={getPostDetails().avatarUrl}
+                        className="transition duration-300 ease-in-out hover:text-chw-light-purple"
+                      >
+                        {getPostDetails().username}
+                      </Link>
+                      <span className="px-[5px] py-0">•</span>
+                    </>
+                  )}
                   <time dateTime={updatedPost.date}>
                     {DateTime.fromISO(updatedPost.date).toLocaleString(
                       DateTime.DATETIME_SHORT,

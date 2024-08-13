@@ -13,6 +13,7 @@ export type iWP_Post = {
     };
   };
   postFields: {
+    poster: "USER" | "GROUP";
     isReported: boolean;
     isSaved: boolean;
     content: string;

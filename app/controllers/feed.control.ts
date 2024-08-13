@@ -23,6 +23,7 @@ const POST_QUERY_FIELDS = (userId: string): string => `
     }
   }
   postFields {
+    poster
     isReported(userId: ${userId})
     isSaved(userId: ${userId})
     content
@@ -108,7 +109,6 @@ const COMMENT_QUERY_FIELDS = (): string => `
     }
   }
 `;
-
 export abstract class Feed {
   static API = class {
     static Post = class {
@@ -125,7 +125,7 @@ export abstract class Feed {
           }
         `,
           async (response) => {
-            return (await response.data.post) as iWP_Post | null;
+            return transformPost(await response.data.post) as iWP_Post | null;
           },
         );
       }
@@ -155,7 +155,13 @@ export abstract class Feed {
           }
         `,
           async (response) => {
-            return (await response.data.posts) as iWP_Posts | null;
+            const all = (await response.data.posts) as iWP_Posts | null;
+            if (!all) return all;
+            return {
+              nodes: all.nodes
+                .map(transformPost)
+                .filter((post) => post !== null && post !== undefined),
+            };
           },
         );
       }
@@ -323,6 +329,7 @@ export abstract class Feed {
         groupId: string,
         groupType: string,
         post: string,
+        poster: iWP_Post["postFields"]["poster"] = "USER",
       ): Promise<string | Error> {
         const post64 = btoa(encodeURIComponent(post)); // Encode to base64 to avoid special characters for GraphQL
         return await GraphQL.mutate(gql`
@@ -332,6 +339,7 @@ export abstract class Feed {
             groupId: ${groupId}, 
             groupType: "${groupType}",
             post: "${post64}"
+            poster: "${poster}"
           }) {
             clientMutationId
             message
@@ -429,4 +437,15 @@ export abstract class Feed {
       }
     };
   };
+}
+
+function transformPost(
+  post: iWP_Post | null | undefined,
+): iWP_Post | null | undefined {
+  if (!post) return post;
+
+  if (typeof post.postFields.poster === "boolean") {
+    post.postFields.poster = post.postFields.poster ? "GROUP" : "USER";
+  }
+  return post;
 }

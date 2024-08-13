@@ -202,7 +202,7 @@ export default function FeedView() {
                 />
               </div>
             </div>
-            <Post post={samplePost[0] as any} />
+            {/* <Post post={samplePost[0] as any} />  */}
             {/* <PostCommentsThread
               root={true}
               totalComments={{
