@@ -1,5 +1,5 @@
 import axios from "axios";
-import { iMailGunTemplateMessage } from "~/models/mailgun.model";
+import type { iMailGunTemplateMessage } from "~/models/mailgun.model";
 import { APP_KEYS } from "~/session.server";
 
 const mailgunAuth = btoa(`api:${APP_KEYS.PRIVATE.MAILGUN_API_KEY}`);

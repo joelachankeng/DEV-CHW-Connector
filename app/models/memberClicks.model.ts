@@ -13,7 +13,9 @@ export type iMemberClicksProfilesResult = {
   previousPageUrl?: string;
   nextPageUrl?: string;
   lastPageUrl: string;
-  profiles: iMemberClicksProfileAttributes[];
+  profiles:
+    | iMemberClicksProfileAttributes[]
+    | iPublic_MemberClicksProfileAttributes[];
 };
 
 export type iMemberClicksProfileAttributes = {
@@ -25,8 +27,10 @@ export type iMemberClicksProfileAttributes = {
   "[Name | Suffix]": string;
   "[Contact Name]": string;
   "[Email | Primary]": string;
+  "[Email | Preferred]"?: string;
   "[Email | Work]": string;
   "[Email | Home]": string;
+  "[Email | Contact Email]": string;
   "[Address | Primary | Line 1]": string;
   "[Address | Primary | Line 2]": string;
   "[Address | Primary | City]": string;
@@ -81,8 +85,11 @@ export type iMemberClicksProfileAttributes = {
   "[Username]": string;
   "[Deleted]": boolean;
   "[Profile URL]": string;
-  [key: string]: any;
 };
+
+export type iPublic_MemberClicksProfileAttributes = Partial<
+  Record<keyof iMemberClicksProfileAttributes, unknown>
+>;
 
 export type iMemberClicksProfileSearchResult = {
   timestamp: number;
@@ -93,7 +100,6 @@ export type iMemberClicksProfileSearchResult = {
   item: {
     id: string;
     expireDate: string;
-    [key: string]: any;
   };
   profilesUrl: string;
 };
@@ -108,7 +114,7 @@ export type iMemberClicksProfileSearchError = {
     message: string;
   }[];
   path: string;
-  parameters: any;
+  parameters: unknown;
 };
 
 export type iMemberClicksAccessTokenResponse = {

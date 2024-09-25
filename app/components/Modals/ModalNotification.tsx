@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import type { ReactNode } from "react";
@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Modal from "./ModalBlank";
 
 type iModalNotificationProps = {
-  title: string;
+  title: string | ReactNode;
   content: ReactNode;
   show: boolean;
   onClose: () => void;
@@ -41,6 +41,12 @@ export default function ModalNotification({
 }: iModalNotificationProps) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const [clicked, setClicked] = useState(false);
+
+  useEffect(() => {
+    if (!show) {
+      setClicked(false);
+    }
+  }, [show]);
 
   return (
     <Modal show={show} cancelButtonRef={cancelButtonRef} onClose={onClose}>
@@ -84,7 +90,7 @@ export default function ModalNotification({
             {cancelButton?.display !== false && (
               <button
                 type="button"
-                className="ml-10 flex w-auto items-center gap-2 pl-8 pt-3 text-base font-bold text-chw-dark-green transition duration-300 ease-in-out hover:text-chw-dark-purple focus-visible:outline-none"
+                className="flex w-auto items-center gap-2 text-base font-bold text-chw-dark-green transition duration-300 ease-in-out hover:text-chw-dark-purple focus-visible:outline-none"
                 onClick={onClose}
                 ref={cancelButtonRef}
               >

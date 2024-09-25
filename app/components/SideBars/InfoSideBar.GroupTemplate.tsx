@@ -130,7 +130,7 @@ export default function InfoSideBarGroupTemplate({
         <SearchField
           placeholder={searchText}
           screenReaderText={searchText}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(value) => onSearchChange(value)}
         />
       )}
       {membership && (
@@ -233,7 +233,7 @@ export function InfoSideBarGroupTemplateMobile({
           className="!bg-white"
           placeholder={searchText}
           screenReaderText={searchText}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(value) => onSearchChange(value)}
         />
       )}
       {membership && (

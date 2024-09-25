@@ -1,12 +1,14 @@
-import { ActionFunctionArgs, json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { USER_ROLES } from "~/constants";
 import { CHWNetwork } from "~/controllers/CHWNetwork.control";
 import { Community } from "~/controllers/community.control";
 import { Feed } from "~/controllers/feed.control";
 import { User } from "~/controllers/user.control";
-import { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
-import { iWP_Community } from "~/models/community.model";
-import { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
+import { UserPublic } from "~/controllers/user.control.public";
+import type { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
+import type { iWP_Community } from "~/models/community.model";
+import type { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
 import { getJWTUserDataFromSession } from "~/servers/userSession.server";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -57,7 +59,9 @@ export async function action({ request }: ActionFunctionArgs) {
     const getUser = await User.Utils.getUserFromSession(request);
     if (getUser && !(getUser instanceof Error)) {
       if (getUser.databaseId.toString() === userId) {
-        if (getUser.roles.nodes.find((n) => n.name === USER_ROLES.ADMIN)) {
+        if (
+          UserPublic.Utils.userCanPostInGroup(getUser, groupData.databaseId)
+        ) {
           poster = "GROUP";
         }
       }
@@ -71,7 +75,7 @@ export async function action({ request }: ActionFunctionArgs) {
     isMember = groupData.communitiesFields.isMember;
   }
 
-  if (!isMember) {
+  if (!isMember && poster === "USER") {
     return json(
       { error: "You are not a member of this group" },
       { status: 400 },

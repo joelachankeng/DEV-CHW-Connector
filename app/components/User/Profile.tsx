@@ -7,8 +7,8 @@ import SVGLocationPin from "~/assets/SVGs/SVGLocationPin";
 import SVGPhone from "~/assets/SVGs/SVGPhone";
 import Avatar from "~/components/User/Avatar";
 import { APP_ROUTES } from "~/constants";
-import USA_States from "~/utilities/US-states.json";
 import React from "react";
+import { UserPublic } from "~/controllers/user.control.public";
 
 export default function Profile({
   fields,
@@ -33,18 +33,7 @@ export default function Profile({
     );
   };
 
-  const getLocation = (): string => {
-    const findState = USA_States.find(
-      (state) => state.abbreviation === fields.state.value,
-    );
-    if (!findState) return "";
-
-    let location = findState.name;
-    if (fields.zipCode.value) location += `, ${fields.zipCode.value}`;
-    return location;
-  };
-
-  const userLocation = getLocation();
+  const userLocation = UserPublic.Utils.getLocation(fields);
 
   const GetAvatar = (): React.ReactNode => {
     return (

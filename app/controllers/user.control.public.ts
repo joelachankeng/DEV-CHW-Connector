@@ -1,19 +1,26 @@
 import { USER_ROLES } from "~/constants";
+import type {
+  iMemberClicksProfileAttributes,
+  iPublic_MemberClicksProfileAttributes,
+} from "~/models/memberClicks.model";
 import type { iWP_Post } from "~/models/post.model";
 import type { iWP_User } from "~/models/user.model";
+import type { iProfileFormFields } from "~/routes/settings/edit-profile";
+import USA_States from "~/utilities/US-states.json";
 
 export abstract class UserPublic {
   public static Utils = class {
     public static userCanPostInGroup(
       user: iWP_User | undefined,
-      networkID: number,
+      groupId: number,
     ): boolean {
+      // check if user has admin privileges for the group
       if (!user) return false;
       if (user.roles.nodes.find((n) => n.name === USER_ROLES.ADMIN))
         return true;
 
       if (!user.userFields.groupAdminAll) return false;
-      return user.userFields.groupAdminAll.includes(networkID);
+      return user.userFields.groupAdminAll.includes(groupId);
     }
 
     public static userCanDeletePost(
@@ -70,5 +77,28 @@ export abstract class UserPublic {
         ? true
         : false;
     }
+
+    public static getLocation = (fields: iProfileFormFields): string => {
+      const findState = USA_States.find(
+        (state) => state.abbreviation === fields.state.value,
+      );
+      if (!findState) return "";
+
+      let location = findState.name;
+      if (fields.zipCode.value) location += `, ${fields.zipCode.value}`;
+      return location;
+    };
+
+    public static isAllyMember = (
+      profile:
+        | iMemberClicksProfileAttributes
+        | iPublic_MemberClicksProfileAttributes,
+    ): boolean => {
+      if (!profile) return false;
+      if (!("[Member Type]" in profile)) return false;
+      const memberType = profile["[Member Type]"];
+      if (typeof memberType !== "string") return false;
+      return memberType.toLowerCase() === "ally organization member";
+    };
   };
 }

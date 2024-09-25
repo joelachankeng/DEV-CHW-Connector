@@ -19,6 +19,12 @@ export const loader: LoaderFunction = async ({ request }) => {
 export default function CommunitiesMy() {
   const { layoutContext } = useOutletContext<iCommunitiesContextState>();
   const [communities, setCommunities] = useState<iWP_Community[]>([]);
+  const [totalCommunities, setTotalCommunities] = useState(0);
+
+  const handleOnReady = (communities: iWP_Community[], total: number) => {
+    setCommunities(communities);
+    setTotalCommunities(total);
+  };
 
   return (
     <>
@@ -32,14 +38,14 @@ export default function CommunitiesMy() {
           <div className="w-full">
             <h2 className="mb-2 font-bold text-chw-dark-green">
               <span className="max-md:hidden">
-                All Communities {"you've"} joined ({communities.length})
+                All Communities {"you've"} joined ({totalCommunities})
               </span>
               <span className="hidden max-md:block">
                 Your communities ({communities.length})
               </span>
             </h2>
             <hr />
-            <MyCommunitiesGrid onReady={setCommunities} />
+            <MyCommunitiesGrid onReady={handleOnReady} />
           </div>
         </div>
       </FullWidthContainer>

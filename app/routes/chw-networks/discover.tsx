@@ -1,27 +1,21 @@
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { LoaderFunction, json } from "@remix-run/node";
-import { useLoaderData, Link, useOutletContext } from "@remix-run/react";
+import type { LoaderFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useOutletContext } from "@remix-run/react";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import SVGDiscover from "~/assets/SVGs/SVGDiscover";
-import SVGFeed from "~/assets/SVGs/SVGFeed";
-import SVGMyCHWNetworks from "~/assets/SVGs/SVGMyCHWNetworks";
 import LoadingSpinner from "~/components/Loading/LoadingSpinner";
-import Page from "~/components/Pages/Page";
 import PublicHealthAlertsBanner from "~/components/PublicHealthAlertsBanner/PublicHealthAlertsBanner";
-import SideBar from "app/components/SideBars/LeftSideBar";
-import { publicHealthAlert } from "~/controllers/publicHealthAlert.control";
-import { iWP_CHWNetwork, iWP_CHWNetworks } from "~/models/CHWNetwork.model";
-import { iGenericError, iGenericSuccess } from "~/models/appContext.model";
-import { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
+import type { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
+import type { iGenericError } from "~/models/appContext.model";
 import { requireUserSession } from "~/servers/userSession.server";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
 import GroupFollowCard from "~/components/Cards/GroupFollowCard";
 import { APP_CLASSNAMES, APP_ROUTES } from "~/constants";
-import { iCHWNetworkContextState } from "../chw-networks";
+import type { iCHWNetworkContextState } from "../chw-networks";
 import FullWidthContainer from "~/components/Containers/FullWidthContainer";
 import { classNames } from "~/utilities/main";
+import { usePagination } from "~/utilities/hooks/usePagination";
+import type { iWP_CHWNetwork_Pagination } from "~/controllers/CHWNetwork.control";
 
 export const loader: LoaderFunction = async ({ request }) => {
   await requireUserSession(request);
@@ -33,10 +27,13 @@ export default function CHWNetworksDiscover() {
   const { layoutContext } = useOutletContext<iCHWNetworkContextState>();
 
   const containerElement = useRef<HTMLDivElement>(null);
+  const paginationContainerElement = useRef<HTMLDivElement>(null);
 
   const [networks, setNetworks] = useState<iWP_CHWNetwork[]>([]);
   const [updatedNetworks, setUpdatedNetworks] = useState<iWP_CHWNetwork[]>([]);
   const [updatingNetworksIds, setUpdatingNetworksIds] = useState<number[]>([]);
+  const [sortHasChanged, setSortHasChanged] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { submit: followingFetchSubmit } = useAutoFetcher<
     { id: string; result: string } | (iGenericError & { id: string })
@@ -76,16 +73,33 @@ export default function CHWNetworksDiscover() {
   });
 
   const { state: networksFetchState, submit: networksFetchSubmit } =
-    useAutoFetcher<iWP_CHWNetworks | iGenericError>(
+    useAutoFetcher<iWP_CHWNetwork_Pagination | iGenericError>(
       "/api/chw-network/getAll",
       (data) => {
+        if (!mounted) setMounted(true);
+        if (sortHasChanged) setSortHasChanged(false);
+
         if ("error" in data) {
           console.error(data.error);
           return;
         }
 
-        setNetworks(data.nodes);
-        setUpdatedNetworks(_.cloneDeep(data.nodes));
+        let newPosts = data.nodes;
+        if (pagination.isLoading) {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+          newPosts = [...networks, ...data.nodes];
+        } else {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+        }
+
+        setNetworks(newPosts);
+        setUpdatedNetworks(_.cloneDeep(newPosts));
         console.log(data);
         dispatchEvent(new CustomEvent("postsLoaded"));
       },
@@ -100,6 +114,22 @@ export default function CHWNetworksDiscover() {
     if (!containerElement.current) return;
     dispatchEvent(new CustomEvent("postsLoaded"));
   }, [containerElement.current?.clientHeight]);
+
+  const { pagination, setPagination, LoadMoreButton } = usePagination(
+    paginationContainerElement,
+    () => {
+      if (networksFetchState !== "idle" || !pagination.pageInfo) {
+        return;
+      }
+      networksFetchSubmit(
+        {
+          // sortBy: sortBy,
+          after: pagination.pageInfo.endCursor,
+        },
+        "POST",
+      );
+    },
+  );
 
   const handleUpdateFollowing = (
     following: "REMOVE" | "ADD",
@@ -154,34 +184,49 @@ export default function CHWNetworksDiscover() {
           <div className="w-full">
             <h2 className="mb-2 font-bold">Discoverable CHW Networks</h2>
             <hr />
-            {networksFetchState !== "idle" ? (
+            {mounted === false || sortHasChanged ? (
               <div className="mx-auto my-8 flex cursor-progress justify-center">
                 <LoadingSpinner />
               </div>
             ) : (
-              <div className="my-4 grid items-start gap-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {updatedNetworks.length > 0 &&
-                  updatedNetworks.map((network: iWP_CHWNetwork) => (
-                    <GroupFollowCard
-                      key={network.databaseId}
-                      image={network.featuredImage.node.mediaItemUrl}
-                      title={network.title}
-                      membersCount={network.chwNetworksFields.totalMembers}
-                      url={`${APP_ROUTES.CHW_NETWORKS}/${network.databaseId}`}
-                      text={{
-                        follow: "Follow this CHW Network",
-                        unfollow: "Unfollow",
-                      }}
-                      isMember={network.chwNetworksFields.isMember}
-                      isLoading={updatingNetworksIds.includes(
-                        network.databaseId,
-                      )}
-                      onFollow={(following) =>
-                        handleUpdateFollowing(following, network.databaseId)
-                      }
-                    />
-                  ))}
-              </div>
+              <>
+                <div
+                  ref={paginationContainerElement}
+                  className="my-4 grid items-start gap-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                >
+                  {updatedNetworks.length > 0 &&
+                    updatedNetworks.map((network: iWP_CHWNetwork) => (
+                      <GroupFollowCard
+                        key={network.databaseId}
+                        image={network.featuredImage.node.mediaItemUrl}
+                        title={network.title}
+                        membersCount={network.chwNetworksFields.totalMembers}
+                        url={`${APP_ROUTES.CHW_NETWORKS}/${network.databaseId}`}
+                        text={{
+                          follow: "Follow this CHW Network",
+                          unfollow: "Unfollow",
+                        }}
+                        isMember={network.chwNetworksFields.isMember}
+                        isLoading={updatingNetworksIds.includes(
+                          network.databaseId,
+                        )}
+                        onFollow={(following) =>
+                          handleUpdateFollowing(following, network.databaseId)
+                        }
+                      />
+                    ))}
+                </div>
+                <div className="mx-auto my-8 flex flex-col items-center justify-center">
+                  {networksFetchState !== "idle" ? (
+                    <LoadingSpinner className="cursor-progress" />
+                  ) : (
+                    <>
+                      {pagination.pageInfo &&
+                        pagination.pageInfo.hasNextPage && <LoadMoreButton />}
+                    </>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

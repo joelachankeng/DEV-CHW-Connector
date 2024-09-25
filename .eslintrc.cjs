@@ -20,6 +20,12 @@ module.exports = {
       jsx: true,
     },
   },
+  // overrides: [
+  //   {
+  //     files: ["*.js"],
+  //     excludedFiles: ["app/components/Editor/plugins/video/index.js"],
+  //   },
+  // ],
   plugins: ["react", "react-hooks", "@typescript-eslint"],
   rules: {
     //add customize rules here as per your project's needs

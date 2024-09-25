@@ -3,9 +3,14 @@ import type { TypedResponse } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import axios from "axios";
 import { handleRequestFormFieldsValidation } from "~/components/Forms/FormFields";
-import type { iMemberClicksAccessTokenResponse } from "~/models/memberClicks.model";
+import type {
+  iMemberClicksAccessTokenResponse,
+  iMemberClicksProfileAttributes,
+  iPublic_MemberClicksProfileAttributes,
+} from "~/models/memberClicks.model";
 import {
   clearUserSession,
+  encryptUserSession,
   getJWTUserDataFromSession,
   getUserSessionToken,
   setUserSession,
@@ -32,19 +37,27 @@ import {
   type iHPForms,
 } from "~/routes";
 import { confirmResetPasswordFormFields } from "~/components/User/ConfirmResetPasswordForm";
-import { GraphQL } from "./graphql.control";
+import type { iGraphQLPageInfo, iGraphQLPagination } from "./graphql.control";
 import {
-  APP_ROUTES,
-  USER_ACCOUNT_DELETION_DELAY_DAYS,
-  USER_ROLES,
-} from "~/constants";
-import type { iWP_User, iWP_User_RestPassword } from "~/models/user.model";
+  createGraphQLPagination,
+  GraphQL,
+  GRAPHQL_CONSTANTS,
+  printGraphQLPagination,
+} from "./graphql.control";
+import { APP_ROUTES, USER_ACCOUNT_DELETION_DELAY_DAYS } from "~/constants";
+import type {
+  iUser_UploadKeys,
+  iWP_User,
+  iWP_User_RestPassword,
+  iWP_Users,
+} from "~/models/user.model";
 import type {
   iSimpleJWTError,
   iSimpleJWTValidation,
 } from "~/models/wpJWT.model";
 import type { iProfileFormFields } from "~/routes/settings/edit-profile";
 import {
+  convertUserToProfileFormFields,
   defaultProfileFormFields,
   handleProfileFormFieldsValidation,
   isProfileFormFieldsValid,
@@ -66,7 +79,61 @@ import {
   WP_NOTIFICATION_SEPARATOR,
 } from "~/models/notifications.model";
 import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
+import password from "~/routes/settings/password";
+import { MESSAGE_QUERY_FIELDS } from "./message.control";
+import type { iWP_Conversations, iWP_Message } from "~/models/message.model";
+import { getMemberClicksSessionToken } from "~/servers/memberClicksSession.server";
+import { UserPublic } from "./user.control.public";
 
+export type iWP_Users_Pagination = iWP_Users & iGraphQLPageInfo;
+export type iPublicUser = iProfileFormFields & {
+  databaseId: number;
+};
+
+const USER_QUERY_FIELDS = (userId: string, includePrivateFields = false) => `
+  email
+  lastName
+  firstName
+  databaseId
+  avatar {
+    url
+  }
+  roles {
+    nodes {
+      name
+    }
+  }
+  userFields {
+    createdViaMemberclicks
+    chwWorker
+    emailType
+    aboutMe
+    phoneNumber
+    state
+    zipCode
+    region
+    preferredLanguages
+    education
+    ageRange
+    certifiedWorker
+    deletionDate
+    ethnicity
+    topPopulations
+    memberships
+    genderIdentity
+    howDidYouHear
+    siteNotifications
+    pushNotifications
+    emailNotifications
+    public
+    groupAdminAll
+    changeemail {
+      newEmail
+      expiration
+      ${includePrivateFields ? "code" : ""}
+    }
+  }
+`;
 export abstract class User {
   static API = class {
     /****
@@ -170,89 +237,67 @@ export abstract class User {
         gql`
           query MyQuery {
             user(id: "${id}", idType: ${type}) {
-              email
-              lastName
-              firstName
-              databaseId
-              avatar {
-                url
-              }
-              roles {
-                nodes {
-                  name
-                }
-              }
-              userFields {
-                createdViaMemberclicks
-                chwWorker
-                emailType
-                aboutMe
-                phoneNumber
-                state
-                zipCode
-                region
-                preferredLanguages
-                education
-                ageRange
-                certifiedWorker
-                deletionDate
-                ethnicity
-                topPopulations
-                memberships
-                genderIdentity
-                howDidYouHear
-                siteNotifications
-                pushNotifications
-                emailNotifications
-                public
-                groupAdminAll
-                changeemail {
-                  newEmail
-                  expiration
-                  ${includePrivateFields ? "code" : ""}
-                }
-              }
+              ${USER_QUERY_FIELDS(id, includePrivateFields)}            
             }
           }
         `,
-        // eslint-disable-next-line @typescript-eslint/require-await
+
         async (response) => {
-          const userData = response.data.user as object | null;
-          if (userData) {
-            if (
-              "userFields" in userData &&
-              userData.userFields &&
-              typeof userData.userFields === "object"
-            ) {
-              const userFields = userData.userFields as {
-                notificationSettings: object;
-                siteNotifications: string[];
-                pushNotifications: string[];
-                emailNotifications: string[];
-                isDeleted: boolean;
-              };
-
-              userFields.notificationSettings =
-                User.Utils.restoreNotificationSettingsFromWP({
-                  siteNotifications: userFields.siteNotifications || [],
-                  pushNotifications: userFields.pushNotifications || [],
-                  emailNotifications: userFields.emailNotifications || [],
-                });
-
-              userFields.isDeleted = false;
-              if ("deletionDate" in userFields && userFields.deletionDate) {
-                userFields.isDeleted = true;
-              }
-
-              userData.userFields = userFields;
-            }
-          }
-
-          return userData as iWP_User | null;
+          const userData = (await response.data.user) as
+            | iWP_User
+            | null
+            | undefined;
+          if (!userData) return null;
+          return transformUser(userData) as iWP_User;
         },
       );
     }
 
+    public static async searchUsers(
+      search: string,
+      userId?: string,
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_Users_Pagination | null | Error> {
+      return await GraphQL.query<iWP_Users_Pagination | null>(
+        gql`
+          query MyQuery {
+            users(
+             ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: {
+                search: "${search}"
+                exclude: [${userId}]
+              }
+            ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
+              nodes {
+                ${USER_QUERY_FIELDS(userId || "-1", false)}
+              }
+            }
+          }
+        `,
+
+        async (response) => {
+          const all = (await response.data
+            .users) as iWP_Users_Pagination | null;
+          if (!all) return all;
+
+          const nodes = all.nodes
+            .map(transformUser)
+            .filter((user) => user !== null && user !== undefined);
+
+          const users: iWP_Users_Pagination = {
+            nodes: nodes.filter(
+              (user) =>
+                user.email.toLowerCase() !== "adminapi@admin.com" &&
+                user.userFields.isDeleted === false,
+            ),
+            pageInfo: all.pageInfo,
+          };
+
+          return users;
+        },
+      );
+    }
     public static async setResetPasswordCode(
       userId: string,
       code: string,
@@ -419,6 +464,103 @@ export abstract class User {
         return undefined;
       }
       return undefined;
+    }
+    public static async search(
+      userId?: string,
+    ): Promise<boolean | Error | null> {
+      return await GraphQL.query<boolean | null>(
+        gql`
+          query MyQuery {
+            user(idType: DATABASE_ID, id: "${userId}") {
+              userFields {
+                checkPassword(password: "${password}")
+              }
+            }
+          }
+        `,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async (response) => {
+          return response.data.user.userFields.checkPassword as boolean | null;
+        },
+      );
+    }
+
+    public static async getAllUnreadMessagesIds(
+      userId: string,
+    ): Promise<number[] | Error | null> {
+      return await GraphQL.query<number[] | null>(
+        gql`
+          query MyQuery {
+            user(idType: DATABASE_ID, id: "${userId}") {
+              userFields {
+                getAllUnreadMessagesIds
+              }
+            }
+          }
+        `,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        async (response) => {
+          return response.data.user.userFields.getAllUnreadMessagesIds as
+            | number[]
+            | null;
+        },
+      );
+    }
+
+    public static async getAllUnreadMessages(
+      userId: string,
+    ): Promise<iWP_Message[] | Error | null> {
+      return await GraphQL.query<iWP_Message[] | null>(
+        gql`
+          query MyQuery {
+            user(idType: DATABASE_ID, id: "${userId}") {
+              userFields {
+                getAllUnreadMessages {
+                  ${MESSAGE_QUERY_FIELDS(userId)}
+                }
+              }
+            }
+          }
+        `,
+        async (response) => {
+          return (await response.data.user.userFields.getAllUnreadMessages) as
+            | iWP_Message[]
+            | null;
+        },
+      );
+    }
+
+    public static async getMessageConversations(
+      userId: string,
+    ): Promise<iWP_Conversations[] | Error | null> {
+      return await GraphQL.query<iWP_Conversations[] | null>(
+        gql`
+          query MyQuery {
+            user(idType: DATABASE_ID, id: "${userId}") {
+              userFields {
+                getMessageConversations {
+                  unreadCount
+                  user {
+                    lastName
+                    firstName
+                    databaseId
+                    avatar {
+                      url
+                    }
+                  }
+                  message {
+                    ${MESSAGE_QUERY_FIELDS(userId)}
+                  }
+                }
+              }
+            }
+          }
+        `,
+        async (response) => {
+          return (await response.data.user.userFields
+            .getMessageConversations) as iWP_Conversations[] | null;
+        },
+      );
     }
   };
 
@@ -646,6 +788,51 @@ export abstract class User {
         deletionDate: { value: "" },
       });
     }
+
+    public static async getMemberClicksProfile(
+      request: Request,
+      email: string,
+      isPublic = true,
+    ): Promise<
+      | iPublic_MemberClicksProfileAttributes
+      | iMemberClicksProfileAttributes
+      | undefined
+      | Error
+    > {
+      const mcToken = await getMemberClicksSessionToken(request);
+      if (!mcToken) return new Error("Unable to connect to MemberClicks");
+
+      const mc_result = await MemberClicks.profileSearch(mcToken, {
+        "[Email | Primary]": email,
+      });
+      if ("error" in mc_result) return new Error(mc_result.error);
+
+      const searchId = mc_result.id;
+
+      const profiles = await MemberClicks.getSearchResults(
+        mcToken,
+        searchId,
+        1,
+        1,
+      );
+      if ("error" in profiles) {
+        return new Error(profiles.error);
+      }
+
+      const findProfile = profiles.profiles.find(
+        (profile) => profile["[Email | Primary]"] === email,
+      );
+
+      if (!findProfile) return undefined;
+
+      if (isPublic) {
+        return MemberClicks.publicizeMemberClicksProfileResult(
+          findProfile as iMemberClicksProfileAttributes,
+        );
+      }
+
+      return findProfile;
+    }
   };
 
   static Forms = class {
@@ -672,6 +859,24 @@ export abstract class User {
       const password = submittedForm.fields.find(
         (field) => field.name === "password",
       );
+
+      const MC_Profile = await User.Methods.getMemberClicksProfile(
+        request,
+        email?.value as string,
+        false,
+      );
+
+      if (!(MC_Profile instanceof Error)) {
+        if (MC_Profile && UserPublic.Utils.isAllyMember(MC_Profile)) {
+          return json(
+            {
+              error:
+                "You're an Ally member! The CHW Connector Platform is restricted to Users who identify as CHW's.",
+            },
+            { status: 400 },
+          );
+        }
+      }
 
       if (!viaMemberClicks) {
         const findWPUser = await User.API.getUser(
@@ -756,6 +961,14 @@ export abstract class User {
       schemaObject: ZodRawShape,
       viaMemberClicks = false,
     ): Promise<TypedResponse> {
+      const mcToken = await getMemberClicksSessionToken(request);
+      if (!mcToken) {
+        return json(
+          { error: "Unable to connect to MemberClicks" },
+          { status: 400 },
+        );
+      }
+
       const submittedForm = await handleRequestFormFieldsValidation({
         schema: schemaObject,
         formData,
@@ -783,6 +996,26 @@ export abstract class User {
       const emailType = submittedForm.fields.find(
         (field) => field.name === "email-type",
       );
+
+      const MC_Profile = await User.Methods.getMemberClicksProfile(
+        request,
+        email?.value as string,
+        false,
+      );
+
+      if (MC_Profile instanceof Error) {
+        return json({ error: MC_Profile.message }, { status: 400 });
+      }
+
+      if (MC_Profile && UserPublic.Utils.isAllyMember(MC_Profile)) {
+        return json(
+          {
+            error:
+              "You're an Ally member! The CHW Connector Platform is restricted to Users who identify as CHW's.",
+          },
+          { status: 400 },
+        );
+      }
 
       const result = await User.API.createUser(
         firstName?.value as string,
@@ -852,7 +1085,11 @@ export abstract class User {
        */
       const { access_token, userId } = memeberClickToken;
 
-      const user = await MemberClicks.getProfileById(access_token, userId);
+      const user = await MemberClicks.getProfileById(
+        access_token,
+        userId,
+        true,
+      );
       if ("error" in user) {
         if ("error_description" in user) {
           // invalid token
@@ -865,6 +1102,12 @@ export abstract class User {
       const emailPreferred = user["[Email | Preferred]"];
       const emailPrimary = user["[Email | Primary]"];
       const email = emailPreferred || emailPrimary;
+
+      if (user && UserPublic.Utils.isAllyMember(user)) {
+        return new Error(
+          "You're an Ally member! The CHW Connector Platform is restricted to Users who identify as CHW's.",
+        );
+      }
 
       const findWPUser = await User.API.getUser(email, "EMAIL");
       if (findWPUser instanceof Error) {
@@ -1155,6 +1398,7 @@ export abstract class User {
       }
 
       if (
+        userPRIVATE.userFields.createdViaMemberclicks === false &&
         userPRIVATE.userFields.changeemail.newEmail &&
         userPRIVATE.userFields.changeemail.code
       ) {
@@ -1622,5 +1866,76 @@ export abstract class User {
 
       return user;
     }
+
+    public static removeSensitiveUserData(user: iWP_User): iPublicUser {
+      const profileFields = {
+        ...transformProfileFormFieldsToSave(
+          convertUserToProfileFormFields(user),
+        ),
+        databaseId: user.databaseId,
+      };
+
+      // remove private fields
+      for (const key in profileFields) {
+        const keyName = key as keyof iProfileFormFields;
+        if (typeof profileFields[keyName] === "object") {
+          if (
+            "public" in profileFields[keyName] &&
+            "value" in profileFields[keyName]
+          ) {
+            if (profileFields[keyName].public === false) {
+              if (Array.isArray(profileFields[keyName].value)) {
+                profileFields[keyName].value = [];
+              } else {
+                profileFields[keyName].value = "";
+              }
+            }
+          }
+        }
+      }
+
+      return profileFields;
+    }
+
+    public static getUploadKeys(userToken: string): iUser_UploadKeys {
+      return {
+        authorization: encryptUserSession(userToken),
+        uploadUrl: APP_KEYS.UPLOAD.ALL_FILES,
+        avatarUrl: APP_KEYS.UPLOAD.AVATAR,
+      };
+    }
   };
+}
+
+function transformUser(
+  user: iWP_User | null | undefined,
+): iWP_User | null | undefined {
+  if (!user) return user;
+
+  if (
+    "userFields" in user &&
+    user.userFields &&
+    typeof user.userFields === "object"
+  ) {
+    const migratedFields = {
+      notificationSettings: {},
+      siteNotifications: [],
+      pushNotifications: [],
+      emailNotifications: [],
+      isDeleted: false,
+    };
+
+    user.userFields.notificationSettings =
+      User.Utils.restoreNotificationSettingsFromWP({
+        siteNotifications: migratedFields.siteNotifications || [],
+        pushNotifications: migratedFields.pushNotifications || [],
+        emailNotifications: migratedFields.emailNotifications || [],
+      });
+
+    user.userFields.isDeleted = false;
+    if ("deletionDate" in user.userFields && user.userFields.deletionDate) {
+      user.userFields.isDeleted = true;
+    }
+  }
+  return user;
 }

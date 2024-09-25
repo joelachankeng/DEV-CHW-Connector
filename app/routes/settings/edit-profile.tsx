@@ -20,6 +20,7 @@ import _ from "lodash";
 import {
   Form,
   json,
+  Link,
   useActionData,
   useLoaderData,
   useNavigation,
@@ -50,6 +51,7 @@ import { TextAreaField } from "~/components/Forms/TextAreaField";
 import type { MultiValue, SingleValue } from "react-select";
 import Select from "react-select";
 import { ClientOnly } from "remix-utils/client-only";
+import { APP_ROUTES, APP_UPLOADS } from "~/constants";
 
 const ZIPCODE_MAX_LENGTH = 5;
 const PREFERREDLANGUAGES_MAX_LENGTH = 50;
@@ -554,7 +556,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   return json({
     authorization: encryptUserSession(userToken),
-    avatarUploadUrl: `${APP_KEYS.PUBLIC.WP_REST_URL}/user/avatar`,
+    avatarUploadUrl: APP_KEYS.UPLOAD.AVATAR,
   });
 };
 
@@ -717,7 +719,7 @@ export default function SettingsEditProfile() {
     setHasChanged(true);
 
     const imgFile = e.target.files[0];
-    const maxAllowedSize = 1 * 1024 * 1024;
+    const maxAllowedSize = APP_UPLOADS.FILE_SIZE_LIMIT.IMAGE;
 
     if (!imgFile.type.includes("image") || imgFile.size > maxAllowedSize) {
       setSelectedFile(undefined);
@@ -1084,9 +1086,11 @@ export default function SettingsEditProfile() {
             <label className={FORM_CLASSES.LABEL.DEFAULT} htmlFor="email">
               Email
             </label>
+
             <div className="relative flex items-center">
               <InputField
                 required
+                readOnly={appContext.User?.userFields.createdViaMemberclicks}
                 value={profileFields.email.value}
                 onChange={(e) => updateFieldValue("email", e.target.value)}
                 classes={{
@@ -1094,12 +1098,18 @@ export default function SettingsEditProfile() {
                     className: "w-full",
                   },
                   input: {
-                    className: "bg-white pr-14",
+                    className: classNames(
+                      "bg-white pr-14",
+                      appContext.User?.userFields.createdViaMemberclicks
+                        ? "!bg-[#f5f6f7] cursor-default"
+                        : "",
+                    ),
                   },
                 }}
                 type="email"
                 name="email"
               />
+
               <PrivacyLockField
                 name="email-privacy"
                 value={!profileFields.email.public}
@@ -1107,6 +1117,20 @@ export default function SettingsEditProfile() {
                 className={classNames("absolute right-0", "mr-5")}
               />
             </div>
+            {appContext.User?.userFields.createdViaMemberclicks && (
+              <div className="mb-2 mt-1 text-sm font-semibold text-chw-dark-purple">
+                <p>
+                  Your email was created via Memberclicks. Please{" "}
+                  <Link
+                    className="text-chw-light-purple underline transition-all duration-300 ease-in-out hover:text-chw-dark-purple"
+                    to={APP_ROUTES.CONTACT}
+                  >
+                    contact
+                  </Link>{" "}
+                  support to update your email.
+                </p>
+              </div>
+            )}
             <PrivacyLabel isPrivate={!profileFields.email.public} />
             <ErrorMessage message={profileFields.email.error} />
             {appContext.User?.userFields.changeemail.newEmail && (
@@ -2033,6 +2057,7 @@ export function isProfileFormFieldsValid(fields: iProfileFormFields): boolean {
   return true;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const findMismatchedRegionsByState = () => {
   for (const key in HHS_regions) {
     const states = HHS_regions[key as keyof typeof HHS_regions];

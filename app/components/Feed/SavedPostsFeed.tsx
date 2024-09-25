@@ -26,8 +26,10 @@ export default function SavedPostsFeed() {
 
   // TOFIX: I want to get rid of this useEffect but doing that prevents the overflowing useEffect on Post.tsx from running
   useEffect(() => {
+    if (mounted) return;
     postFetchSubmit({}, "POST");
-  }, []);
+    setMounted(true);
+  }, [mounted, postFetchSubmit]);
 
   return (
     <>

@@ -1,7 +1,7 @@
 // import types
 import type { OutputData } from "./editor.client";
 // import libs
-import EditorJS from "./editor.client";
+import type EditorJS from "./editor.client";
 import { useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { EditorBlock } from "./EditorBlock";

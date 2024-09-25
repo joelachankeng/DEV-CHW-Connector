@@ -61,7 +61,7 @@ export const loader: LoaderFunction = async ({
   }
 
   await requireMemberClicks(request);
-  defaultLoaderData.MC_URL = await MemberClicks.getOauthUrl(request);
+  defaultLoaderData.MC_URL = MemberClicks.getOauthUrl(request);
 
   const urlParams = getRequestParams(request);
 

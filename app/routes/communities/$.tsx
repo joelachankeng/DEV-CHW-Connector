@@ -1,5 +1,5 @@
 import type { LoaderFunction } from "@remix-run/node";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EllipsisHorizontalIcon } from "@heroicons/react/20/solid";
 import { InfoSideBarMobile } from "~/components/SideBars/InfoSideBar";
 import type { iGenericError } from "~/models/appContext.model";
@@ -22,10 +22,9 @@ import InfoSideBarGroupTemplate, {
 } from "~/components/SideBars/InfoSideBar.GroupTemplate";
 import Drawer from "~/components/Drawer";
 import PostAddNew from "~/components/Posts/PostAddNew";
-import { useLoaderData, useOutletContext } from "@remix-run/react";
+import { json, useLoaderData, useOutletContext } from "@remix-run/react";
 import { ErrorComponent } from "~/components/Pages/ErrorPage";
-import { AppContext } from "~/contexts/appContext";
-import { UserPublic } from "~/controllers/user.control.public";
+import { getUserSessionToken } from "~/servers/userSession.server";
 
 const sortByOptions = ["Recent", "Popular"];
 const sortByOptionsMap = sortByOptions.map((option) => ({
@@ -33,11 +32,18 @@ const sortByOptionsMap = sortByOptions.map((option) => ({
   value: option.toLowerCase(),
 }));
 
+type iLoaderData = {
+  community: undefined | iWP_Community;
+};
+
 export const loader: LoaderFunction = async ({ request, params }) => {
   let userId = -1;
   const getUser = await User.Utils.getUserFromSession(request);
   if (getUser && !(getUser instanceof Error)) {
-    userId = getUser.databaseId;
+    const userToken = await getUserSessionToken(request);
+    if (userToken) {
+      userId = getUser.databaseId;
+    }
   }
 
   const paramId = params["*"];
@@ -49,21 +55,18 @@ export const loader: LoaderFunction = async ({ request, params }) => {
     communityId.toString(),
   );
 
-  return {
-    community: community instanceof Error ? undefined : community,
-  };
+  return json<iLoaderData>({
+    community:
+      community instanceof Error || community === null ? undefined : community,
+  });
 };
 export default function CommunitiesSingle() {
-  const { appContext } = useContext(AppContext);
   const { layoutContext } = useOutletContext<iCommunitiesContextState>();
 
-  const { community } = useLoaderData() as {
-    community: undefined | iWP_Community;
-  };
+  const { community } = useLoaderData<iLoaderData>();
 
-  const [communityState, setCommunityState] = useState<
-    iWP_Community | undefined
-  >(community);
+  const [communityState, setCommunityState] =
+    useState<typeof community>(community);
   const [mounted, setMounted] = useState(false);
   const [sortBy, setSortBy] =
     useState<(typeof sortByOptions)[number]>("recent");
@@ -137,13 +140,14 @@ export default function CommunitiesSingle() {
       },
       "POST",
     );
-  }, []);
+  }, [communityState?.databaseId, postFetchSubmit, sortBy]);
 
   // TOFIX: I want to get rid of this useEffect but doing that prevents the overflowing useEffect on Post.tsx from running
   useEffect(() => {
+    if (mounted) return;
     setMounted(true);
     handlePostSubmit();
-  }, []);
+  }, [handlePostSubmit, mounted]);
 
   const handleUpdateFollowing = (
     following: "REMOVE" | "ADD",
@@ -273,10 +277,7 @@ export default function CommunitiesSingle() {
               }}
             /> */}
             {communityState &&
-              UserPublic.Utils.userCanPostInGroup(
-                appContext.User,
-                communityState.databaseId,
-              ) && (
+              communityState.communitiesFields.isMember === true && (
                 <PostAddNew
                   groupId={communityState.databaseId}
                   groupType="COMMUNITY"

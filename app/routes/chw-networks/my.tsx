@@ -20,6 +20,12 @@ export const loader: LoaderFunction = async ({ request }) => {
 export default function CHWNetworksMy() {
   const { layoutContext } = useOutletContext<iCHWNetworkContextState>();
   const [networks, setNetworks] = useState<iWP_CHWNetwork[]>([]);
+  const [totalNetworks, setTotalNetworks] = useState(0);
+
+  const handleOnReady = (Networks: iWP_CHWNetwork[], total: number) => {
+    setNetworks(networks);
+    setTotalNetworks(total);
+  };
 
   return (
     <>
@@ -32,10 +38,10 @@ export default function CHWNetworksMy() {
         <div className="flex items-center justify-between gap-2.5 border-b border-solid border-b-[#C1BAB4] pb-1 text-base font-semibold text-[#686867] ">
           <div className="w-full">
             <h2 className="mb-2 font-bold text-chw-dark-green">
-              All CHW Networks {"you've"} joined ({networks.length})
+              All CHW Networks {"you've"} joined ({totalNetworks})
             </h2>
             <hr />
-            <MyCHWNetworksGrid onReady={setNetworks} />
+            <MyCHWNetworksGrid onReady={handleOnReady} />
           </div>
         </div>
       </FullWidthContainer>

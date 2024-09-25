@@ -1,6 +1,14 @@
 import { gql } from "@apollo/client/core/core.cjs";
-import { GraphQL } from "./graphql.control";
+import type { iGraphQLPageInfo, iGraphQLPagination } from "./graphql.control";
+import {
+  createGraphQLPagination,
+  GraphQL,
+  GRAPHQL_CONSTANTS,
+  printGraphQLPagination,
+} from "./graphql.control";
 import type { iWP_Communites, iWP_Community } from "~/models/community.model";
+
+export type iWP_Communites_Pagination = iWP_Communites & iGraphQLPageInfo;
 
 const COMMUNITY_QUERY_FIELDS = (userId: string): string => `
 databaseId
@@ -40,11 +48,16 @@ export abstract class Community {
 
     public static async getAll(
       userId: string,
-    ): Promise<iWP_Communites | null | Error> {
-      return await GraphQL.query<iWP_Communites | null>(
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_Communites_Pagination | null | Error> {
+      return await GraphQL.query<iWP_Communites_Pagination | null>(
         gql`
           query MyQuery {
-            communities(where: { orderby: { field: DATE, order: DESC } }) {
+            communities(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: { orderby: { field: DATE, order: DESC } 
+            }) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 ${COMMUNITY_QUERY_FIELDS(userId)}
               }
@@ -52,21 +65,27 @@ export abstract class Community {
           }
         `,
         async (response) => {
-          return (await response.data.communities) as iWP_Communites | null;
+          return (await response.data
+            .communities) as iWP_Communites_Pagination | null;
         },
       );
     }
 
     public static async getAllByMembership(
       userId: string,
-    ): Promise<iWP_Communites | null | Error> {
-      return await GraphQL.query<iWP_Communites | null>(
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_Communites_Pagination | null | Error> {
+      return await GraphQL.query<iWP_Communites_Pagination | null>(
         gql`
           query MyQuery {
-            communities(where: { 
-              orderby: { field: DATE, order: DESC, },
-              userMembership: ${userId}
-            }) {
+            communities(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: { 
+                orderby: { field: DATE, order: DESC, },
+                userMembership: ${userId}
+              }
+            ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 ${COMMUNITY_QUERY_FIELDS(userId)}
               }
@@ -74,7 +93,8 @@ export abstract class Community {
           }
         `,
         async (response) => {
-          return (await response.data.communities) as iWP_Communites | null;
+          return (await response.data
+            .communities) as iWP_Communites_Pagination | null;
         },
       );
     }

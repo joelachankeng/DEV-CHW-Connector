@@ -161,3 +161,26 @@
 .cdx-input.image-tool__caption {
   display: none;
 }
+
+.message-content.html-formatted-content
+  .codex-editor--narrow
+  .codex-editor__redactor {
+  margin-right: 0 !important;
+}
+@media (max-width: 650px) {
+  .ce-popover .ce-popover__container {
+    top: 100px;
+    left: 5%;
+    right: auto;
+    height: 100vh;
+    width: 90%;
+    max-width: 100%;
+    bottom: auto;
+    min-width: 0px;
+    overflow: scroll;
+  }
+}
+
+div[data-readonly="true"] .cdx-input.embed-tool__caption:empty {
+  display: none;
+}

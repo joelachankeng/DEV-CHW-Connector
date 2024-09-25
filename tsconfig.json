@@ -6,7 +6,8 @@
     "remix.env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "app/servers/apolloClient.js"
+    "app/servers/apolloClient.js",
+    "app/components/Editor/plugins/video/index.js"
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2020"],

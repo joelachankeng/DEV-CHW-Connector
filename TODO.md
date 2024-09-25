@@ -1,3 +1,58 @@
+- write cron that delete all temps file older than 1 day (\wp-content\uploads\user\{id}\temp)
+- create github workflow to copy over editor-block.css and plugins files to wp-content\themes\CHW-Connector-Admin\includes\vendor\editorJS
+- prevent ally MC users from logging in or signing up
+- send an email/push notification for inactivity users after 5 days
+- send another for account deletion if inactive for 30 days
+- notificationManager
+- - create useCustomEvent hook params = { title, func}[]
+- - - in useEffect, foreach params and add/remove event listeners
+- - - test if you can remove an event listeners if the function is given a name but it is an argument
+- - export class Dispatch, it param will be multiple types: {title, ...detail keys}
+- - update to add notifications based on event listener instead of context
+- - - test whats happen if 2, 3+ notifications are sent to the manager at once
+- - either limit how much notifications are shown or add scroll (changed to useRef to see if it works)
+- - add clear button
+- remove any parenthesis from useState that calls a function to avoid func running every render, ex: useState(init()) -> useState(init)
+- Fix messaging
+- check if paragraph block is only emojis and increase it fontsize to 48px - https://stackoverflow.com/questions/58942139/is-there-a-way-to-check-if-a-string-in-js-is-one-single-emoji
+- if multiple message notification messages from the same user is recieved, clicking on reply don't close all of them.
+- if multiple unread, scroll to earlier one instead of bottom & style unread message different(add a border glow?)
+- remove message a tag and use link
+- change all pagination to use axios
+- fix uploading videos and files
+- TO PREVENT EDITOR FROM RERENDERING WHEN PARENT STATE CHANGES:
+- memo editor component and wrap all functions that are passed to editor in useCallback
+  https://medium.com/@akashshukla_1715/preventing-unnecessary-rerendering-of-child-components-in-react-using-usecallback-and-react-memo-34f1423fe263
+- instead of using dispatchEvent- use this https://www.youtube.com/watch?v=JvoETiIz8J4
+- - also use the above method to prevent unnneccary re-renders or useEffects between child and parent component
+- add "# of new post"/messages bubble when a user has scrolled on feed or messages and new items are fetch
+- create hook to listen and dispatch events, add string type that contains all available custom Events
+- update SEO for share links,
+- fix double conversation error.
+- - 1. save post with a word surround with double quotes, ex "react"
+- - 2. fix issue with parsing json
+- get count of each unread by user in getMessageConversations query
+- seperate appcontext's key so they don't affect each other, messageManager set is preventing notification from closing
+- keep scroll positon when scrolling up on message
+- - get position of the first message before fetching pagination
+- - after pagination loads, disable load button and scroll instantly back to first message position
+- test database concurrecy by sending a 1000 requests to react, shares, report and any other query that might affect another post
+- - if concurrency fails then create a new Table with rows:
+  - id -> auto-increment int, name -> varchar, value -> varchar
+  - save concurrency items to the table,
+  - int = 2, user_id=2, name = react_post_234, value = seralize(userData)
+  - all related actions to a post should have the same name so that they can be query all at once. so if we want all reactions for post 234, you query for all rows that have the above name. The value will have the userData to avoid re-querying for it. To update or delete a user's reactio to post_234, query for the name and user id, and then delete/update. This solves the concurrency issue because CRUDing the row won't affect any other tables and stall updating.
+- add cron to delete any messages with a reciever ID that doesn't correspond to a user
+- add option to delete individual message instead of all messages
+- user that start deletion process shouldn't recieve notifications and recieving messages from other users
+- write cron to delete terms for deleted posts
+- add react feature on comment
+- fix replies on comment
+- - update comment length on Post.tsx whenever a reply is added
+- - when a reply is added, total replies is updated. When load more is clicked, the pageInfo has the correct length of replies. Figure out how to update total replies on thread when pageInfo is present
+- - - solution - when load more is fetched, find the comment with parentId and change its totalReplies and set state.
+- fix pagination scrolling on mobile
+- if replies on comment are 3 level deep, the more reply link should take them to new page with just the post and the replies
 - my group route - when remove unfollow group, update counter
 - change delete post, message and comment mutation to a custom mutation that also deletes a post/comments attachments, reactions, and any child comments.
 - fix emoji resize on mobile by trigger mobile with dispatchEvent
@@ -155,6 +210,10 @@
 - look at slack notes
 - refresh tokens after 60 if user still active
 - maybe add ability to block usrs
+- pagination comments from posts. app is getting every comment a post has
+- go to discover community page and manually click join for all groups at all once
+- - Only the last group stop showing the loading spinner, this is due to remix network concurrency
+- - try fixing that changing api route to dynamic: routes/api/chw-network/updateMember/$networkId
 
   POSTLAUNCH
 
@@ -166,6 +225,8 @@
 - add domain to cors
 - change all template/versions in mailgun, logo url to production site
 - change all urls in the env var to production urls
+
+- use no-reply@chwconnector.org for mailgun
 
 # WordPress
 

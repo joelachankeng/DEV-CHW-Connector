@@ -89,7 +89,7 @@ export function PublicHealthAlertsBannerContent({
   };
 
   return (
-    <div className="[&_p+p]:mt-2.5 font-semibold text-base leading-[18px] text-[#032525">
+    <div className="text-[#032525 text-base font-semibold leading-[18px] [&_p+p]:mt-2.5">
       <p>
         <span className="font-bold">ALERT{getDate()}:</span>
         {` `}
@@ -99,7 +99,7 @@ export function PublicHealthAlertsBannerContent({
         <Link
           to={`${APP_ROUTES.PUBLIC_HEALTH_ALERTS}/${alert.databaseId}`}
           prefetch="viewport"
-          className="text-chw-dark-green underline hover:text-chw-dark-purple transition duration-300 ease-in-out"
+          className="text-chw-dark-green underline transition duration-300 ease-in-out hover:text-chw-dark-purple"
         >
           {alert.publicHealthAlertsField.previewContent}
         </Link>

@@ -1,10 +1,11 @@
 import { Form, Link } from "@remix-run/react";
-import { useContext, useRef, useState } from "react";
-import { APP_ROUTES, USER_ROLES } from "~/constants";
+import { useContext, useMemo, useRef, useState } from "react";
+import { APP_ROUTES } from "~/constants";
 import { AppContext } from "~/contexts/appContext";
 import { classNames } from "~/utilities/main";
 import Avatar from "../User/Avatar";
 import SVGCloseButton from "~/assets/SVGs/SVGCloseButton";
+import type { iPostEditorPropSetter } from "./Editor/PostEditor";
 import PostEditor, { EDITOR_ERROR_MESSAGE } from "./Editor/PostEditor";
 import type { OutputData } from "@editorjs/editorjs";
 import type EditorJS from "@editorjs/editorjs";
@@ -13,6 +14,7 @@ import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
 import type { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
 import LoadingSpinner from "../Loading/LoadingSpinner";
 import _ from "lodash";
+import { UserPublic } from "~/controllers/user.control.public";
 
 export default function PostAddNew({
   groupId,
@@ -26,10 +28,12 @@ export default function PostAddNew({
   const { appContext } = useContext(AppContext);
 
   const [collapsed, setCollapsed] = useState(true);
-  const [postData, setPostData] = useState<OutputData["blocks"]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const editorRef = useRef<EditorJS>();
+  const postData = useRef<OutputData["blocks"]>([]);
+  const postEditorPropSetter = useRef<iPostEditorPropSetter>();
 
   const { state: addPostFetchState, submit: addPostFetchSubmit } =
     useAutoFetcher<iGenericSuccess | iGenericError>(
@@ -57,26 +61,26 @@ export default function PostAddNew({
       },
     );
 
-  const handleClearNewPost = () => {
+  const handleClear = () => {
     editorRef.current?.clear();
     setCollapsed(true);
   };
 
   const handleEditorOnChange = (blocks: OutputData["blocks"]) => {
+    postData.current = blocks;
     if (blocks.length === 0) {
       setCollapsed(true);
     } else {
       setCollapsed(false);
     }
-    setPostData(blocks);
   };
 
-  const handleSubmitNewPost = (
+  const handleSubmit = (
     e: React.MouseEvent<HTMLButtonElement>,
     poster: iWP_Post["postFields"]["poster"] = "USER",
   ) => {
     e.preventDefault();
-    if (postData == undefined || postData.length == 0) return;
+    if (postData.current == undefined || postData.current.length == 0) return;
 
     if (!editorRef.current) return setErrorMessage(EDITOR_ERROR_MESSAGE);
     editorRef.current.readOnly
@@ -87,7 +91,7 @@ export default function PostAddNew({
             groupId: groupId.toString(),
             groupType: groupType,
             post: JSON.stringify({
-              blocks: postData,
+              blocks: postData.current,
             }),
             poster: poster,
           },
@@ -99,6 +103,32 @@ export default function PostAddNew({
         setErrorMessage(EDITOR_ERROR_MESSAGE);
       });
   };
+
+  const createEditor = useMemo(
+    () => (
+      <PostEditor
+        editorRef={editorRef}
+        containerClassNames="!w-full"
+        blockData={postData.current}
+        editorHolderId="new-post-editor"
+        editorPlaceholder="Make a post..."
+        onChange={(data) => handleEditorOnChange(data)}
+        propSetter={postEditorPropSetter}
+        uploadEvents={{
+          filterUrl: () => {
+            return "";
+          },
+          onBeforeUpload: () => {
+            setIsUploading(postEditorPropSetter.current?.isUploading ?? true);
+          },
+          onUploadComplete: () => {
+            setIsUploading(postEditorPropSetter.current?.isUploading ?? false);
+          },
+        }}
+      />
+    ),
+    [],
+  );
 
   const durationClasses = "transition-all duration-300 ease-in-out";
 
@@ -140,11 +170,7 @@ export default function PostAddNew({
               </div>
             </div>
             <div className="">
-              <button
-                onClick={handleClearNewPost}
-                type="button"
-                className="h-5 w-5"
-              >
+              <button onClick={handleClear} type="button" className="h-5 w-5">
                 <span className="sr-only">Clear New Post</span>
                 <SVGCloseButton
                   bgStroke={{ default: "none", hover: "#625DA6" }}
@@ -172,14 +198,7 @@ export default function PostAddNew({
                 : "max-xs:-ml-5 max-xs:h-0 max-xs:w-0 max-xs:opacity-0",
             )}
           ></div>
-          <PostEditor
-            editorRef={editorRef}
-            containerClassNames="!w-full"
-            blockData={postData}
-            editorHolderId="new-post-editor"
-            editorPlaceholder="Make a post..."
-            onChange={(data) => handleEditorOnChange(data)}
-          />
+          {createEditor}
         </div>
         {errorMessage && (
           <p className="ml-[3.75rem] max-xs:ml-0">
@@ -194,31 +213,34 @@ export default function PostAddNew({
             errorMessage ? "!mt-0" : "",
           )}
         >
-          {addPostFetchState !== "idle" ? (
-            <LoadingSpinner className="" />
+          {addPostFetchState !== "idle" || isUploading ? (
+            <div className="flex items-center gap-4 font-bold">
+              {isUploading && <span>Uploading</span>}
+              <LoadingSpinner className="" />
+            </div>
           ) : (
             <>
               <button
-                onClick={handleSubmitNewPost}
+                onClick={handleSubmit}
                 type="submit"
-                disabled={collapsed || postData.length === 0}
+                disabled={collapsed}
                 className="w-full max-w-[6.875rem] cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
               >
                 Post
               </button>
-              {appContext.User &&
-                appContext.User.roles.nodes.find(
-                  (n) => n.name === USER_ROLES.ADMIN,
-                ) && (
-                  <button
-                    onClick={(e) => handleSubmitNewPost(e, "GROUP")}
-                    type="submit"
-                    disabled={collapsed || postData.length === 0}
-                    className="cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
-                  >
-                    Post as {_.capitalize(groupType)}
-                  </button>
-                )}
+              {UserPublic.Utils.userCanPostInGroup(
+                appContext.User,
+                groupId,
+              ) && (
+                <button
+                  onClick={(e) => handleSubmit(e, "GROUP")}
+                  type="submit"
+                  disabled={collapsed}
+                  className="cursor-pointer rounded-[40px] border-2 border-[none] border-chw-light-purple bg-white px-[25px] py-2.5 text-center text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
+                >
+                  Post as {_.capitalize(groupType)}
+                </button>
+              )}
             </>
           )}
         </div>

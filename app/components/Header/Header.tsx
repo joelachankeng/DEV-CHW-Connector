@@ -11,7 +11,7 @@ import SVGAlert from "~/assets/SVGs/SVGAlert";
 import SVGEmail from "~/assets/SVGs/SVGEmail";
 import { SVGBell } from "~/assets/SVGs/SVGBell";
 import { SVGAvatarTwo } from "~/assets/SVGs/SVGAvatarTwo";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import _ from "lodash";
 import MenuDropDown from "./MenuDropdown";
 import SVGAvatarThree from "~/assets/SVGs/SVGAvatarThree";
@@ -46,7 +46,7 @@ const profileMenu: iMenuItemsListItems[][] = [
     {
       text: "Help Center",
       icon: <SVGHelp />,
-      link: APP_ROUTES.HELP_CENTER,
+      link: APP_ROUTES.CONTACT,
     },
     {
       text: "Terms & Policies",
@@ -87,7 +87,7 @@ const profileSideMenu: iMenuItemsListItems[][] = [
     {
       text: "About CHW Connector",
       icon: <SVGAbout />,
-      link: APP_ROUTES.ABOUT_CHW_CONNECTOR,
+      link: APP_ROUTES.ABOUT,
     },
     {
       text: "Contact NACHW",
@@ -134,20 +134,27 @@ export default function Header() {
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const mediaQuery = useMediaSize();
 
-  const AccountNavLinks: iHeaderNav["items"] = [
-    {
-      title: "Messages",
-      url: APP_ROUTES.MESSAGES,
-      icon: (
+  const createMessageMenuIcon = useCallback(
+    (unreadCount: number): JSX.Element => {
+      return (
         <>
           <div className="relative">
             <SVGEmail />
-            {/* <span className="group-hover:bg-chw-light-purple group-hover:text-white text-[10px] font-bold text-[#032525] bg-[#FABE46] absolute h-[25px] w-[25px] flex items-center justify-center rounded-[100%] -right-2.5 -bottom-2.5">
-              24
-            </span> */}
+            <MessageNotificationCount
+              count={appContext.MessagesManager.unreadIds.length}
+            />
           </div>
         </>
-      ),
+      );
+    },
+    [appContext.MessagesManager.unreadIds.length],
+  );
+
+  const AccountNavLinks: iHeaderNav["items"] = [
+    {
+      title: "Messages",
+      url: APP_ROUTES.MESSAGES.concat("?view=feed"),
+      icon: createMessageMenuIcon(appContext.MessagesManager.unreadIds.length),
     },
     {
       title: "Notifications",
@@ -194,12 +201,13 @@ export default function Header() {
 
     menus.flat().forEach((item) => {
       const slashAmount = (pathname.match(/\//g) || []).length;
+
       if (slashAmount === 1) {
-        if (pathname === item.url) {
+        if (pathname === item.url.split("?")[0]) {
           activeMenu = item;
         }
       } else {
-        if (pathname.startsWith(item.url)) {
+        if (pathname.startsWith(item.url.split("?")[0])) {
           activeMenu = item;
         }
       }
@@ -215,22 +223,49 @@ export default function Header() {
       });
     });
 
-    setMenus(updatedMenus);
-  }, []);
+    if (!_.isEqual(updatedMenus, menus)) setMenus(updatedMenus);
+  }, [menus]);
+
+  useEffect(() => {
+    setMenus((prev) => {
+      return prev.map((menu) => {
+        return menu.map((item) => {
+          if (item.title.toLowerCase() === "messages") {
+            return {
+              ...item,
+              icon: createMessageMenuIcon(
+                appContext.MessagesManager.unreadIds.length,
+              ),
+            };
+          }
+          return item;
+        });
+      });
+    });
+  }, [appContext.MessagesManager.unreadIds, createMessageMenuIcon]);
 
   const getAccountNavItems = (): iHeaderNav["items"] => {
     const accountNavItems = menus[1];
     if (appContext.User) return accountNavItems;
 
+    const emptyItem = {
+      title: "",
+      url: "",
+      icon: <></>,
+    };
+
     return accountNavItems.map((item) => {
+      if (item.url.startsWith(APP_ROUTES.MESSAGES)) {
+        return {
+          ...item,
+          ...emptyItem,
+        };
+      }
       switch (item.url) {
-        case APP_ROUTES.MESSAGES:
         case APP_ROUTES.NOTIFICATIONS:
           return {
             ...item,
-            title: "",
-            url: "",
-            icon: <></>,
+            ...emptyItem,
           };
         case APP_ROUTES.PROFILE:
           return {
@@ -410,4 +445,23 @@ function ProfileButton() {
       <span className="sr-only text-xs font-bold text-[#686867]">Profile</span>
     </>
   );
+}
+
+export function MessageNotificationCount({
+  count,
+  className,
+}: {
+  count: number;
+  className?: string;
+}) {
+  return count > 0 ? (
+    <span
+      className={classNames(
+        "absolute -bottom-2.5 -right-2.5 flex h-[25px] w-[25px] items-center justify-center rounded-[100%] bg-[#FABE46] text-[10px] font-bold text-[#032525] group-hover:bg-chw-light-purple group-hover:text-white",
+        className || "",
+      )}
+    >
+      {count}
+    </span>
+  ) : null;
 }

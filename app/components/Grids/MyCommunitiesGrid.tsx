@@ -1,11 +1,13 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LoadingSpinner from "~/components/Loading/LoadingSpinner";
 import type { iGenericError } from "~/models/appContext.model";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
-import type { iWP_Communites, iWP_Community } from "~/models/community.model";
+import type { iWP_Community } from "~/models/community.model";
 import MyGroupCard from "~/components/Cards/MyGroupCard";
 import { APP_ROUTES } from "~/constants";
+import { usePagination } from "~/utilities/hooks/usePagination";
+import type { iWP_Communites_Pagination } from "~/controllers/community.control";
 
 export default function MyCommunitiesGrid({
   communities,
@@ -13,9 +15,11 @@ export default function MyCommunitiesGrid({
   userId, // If userId is provided, the user is not the viewer
 }: {
   communities?: iWP_Community[];
-  onReady?: (communities: iWP_Community[]) => void;
+  onReady?: (communities: iWP_Community[], total: number) => void;
   userId?: number;
 }) {
+  const containerElement = useRef<HTMLDivElement>(null);
+
   const [myCommunities, setMyCommunities] = useState<iWP_Community[]>(
     communities || [],
   );
@@ -25,6 +29,8 @@ export default function MyCommunitiesGrid({
   const [updatedCommunitiesIds, setUpdatedCommunitiesIds] = useState<number[]>(
     [],
   );
+  const [sortHasChanged, setSortHasChanged] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { submit: followingFetchSubmit } = useAutoFetcher<
     { id: string; result: string } | (iGenericError & { id: string })
@@ -73,17 +79,45 @@ export default function MyCommunitiesGrid({
   });
 
   const { state: communitiesFetchState, submit: communitiesFetchSubmit } =
-    useAutoFetcher<iWP_Communites | iGenericError>(
+    useAutoFetcher<iWP_Communites_Pagination | iGenericError>(
       "/api/community/getMemberships",
       (data) => {
+        if (!mounted) setMounted(true);
+        if (sortHasChanged) setSortHasChanged(false);
+
         if ("error" in data) {
           console.error(data.error);
           return;
         }
 
-        onReady && onReady(data.nodes);
-        setMyCommunities(data.nodes);
-        setUpdatedCommunities(_.cloneDeep(data.nodes));
+        let newPosts = data.nodes;
+        if (pagination.isLoading) {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+          const mergeCommunities = [
+            ...(communities || []),
+            ...updatedCommunities,
+          ];
+          // remove any items with the same databaseId in data.nodes
+          newPosts = newPosts.filter(
+            (community) =>
+              !mergeCommunities.some(
+                (c) => c.databaseId === community.databaseId,
+              ),
+          );
+          newPosts = [...mergeCommunities, ...newPosts];
+        } else {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+        }
+
+        if (!mounted) onReady && onReady(newPosts, data.pageInfo.total);
+        setMyCommunities(newPosts);
+        setUpdatedCommunities(_.cloneDeep(newPosts));
         dispatchEvent(new CustomEvent("postsLoaded"));
       },
     );
@@ -110,42 +144,75 @@ export default function MyCommunitiesGrid({
     );
   };
 
+  const { pagination, setPagination, LoadMoreButton } = usePagination(
+    containerElement,
+    () => {
+      if (communities) return;
+      if (communitiesFetchState !== "idle" || !pagination.pageInfo) {
+        return;
+      }
+      communitiesFetchSubmit(
+        {
+          ...(userId && { userId: userId.toString() }),
+          after: pagination.pageInfo.endCursor,
+        },
+        "POST",
+      );
+    },
+  );
+
   return (
     <>
-      {communitiesFetchState !== "idle" ? (
+      {mounted === false || sortHasChanged ? (
         <div className="mx-auto my-8 flex cursor-progress justify-center">
           <LoadingSpinner />
         </div>
       ) : (
-        <div className="my-4 grid items-start gap-4 max-md:-mx-5 max-md:gap-0 md:grid-cols-2 lg:grid-cols-4">
-          {updatedCommunities.length > 0 &&
-            updatedCommunities
-              .filter((community) => community.communitiesFields.isMember)
-              .map((community: iWP_Community, index) => (
-                <MyGroupCard
-                  key={community.databaseId}
-                  className={
-                    index === updatedCommunities.length - 1
-                      ? "max-md:!border-b-0"
-                      : ""
-                  }
-                  title={community.title}
-                  image={community.featuredImage.node.mediaItemUrl}
-                  membersCount={community.communitiesFields.totalMembers}
-                  url={`${APP_ROUTES.COMMUNITIES}/${community.databaseId}`}
-                  text={{
-                    view: "View",
-                    unfollow: userId ? "" : "Leave",
-                  }}
-                  isLoading={updatedCommunitiesIds.includes(
-                    community.databaseId,
-                  )}
-                  onUnFollow={() => {
-                    handleRemoveMembership(community.databaseId);
-                  }}
-                />
-              ))}
-        </div>
+        <>
+          <div
+            ref={containerElement}
+            className="my-4 grid items-start gap-4 max-md:-mx-5 max-md:gap-0 md:grid-cols-2 lg:grid-cols-4"
+          >
+            {updatedCommunities.length > 0 &&
+              updatedCommunities
+                .filter((community) => community.communitiesFields.isMember)
+                .map((community: iWP_Community, index) => (
+                  <MyGroupCard
+                    key={community.databaseId}
+                    className={
+                      index === updatedCommunities.length - 1
+                        ? "max-md:!border-b-0"
+                        : ""
+                    }
+                    title={community.title}
+                    image={community.featuredImage.node.mediaItemUrl}
+                    membersCount={community.communitiesFields.totalMembers}
+                    url={`${APP_ROUTES.COMMUNITIES}/${community.databaseId}`}
+                    text={{
+                      view: "View",
+                      unfollow: userId ? "" : "Leave",
+                    }}
+                    isLoading={updatedCommunitiesIds.includes(
+                      community.databaseId,
+                    )}
+                    onUnFollow={() => {
+                      handleRemoveMembership(community.databaseId);
+                    }}
+                  />
+                ))}
+          </div>
+          <div className="mx-auto my-8 flex flex-col items-center justify-center">
+            {communitiesFetchState !== "idle" ? (
+              <LoadingSpinner className="cursor-progress" />
+            ) : (
+              <>
+                {pagination.pageInfo && pagination.pageInfo.hasNextPage && (
+                  <LoadMoreButton />
+                )}
+              </>
+            )}
+          </div>
+        </>
       )}
     </>
   );

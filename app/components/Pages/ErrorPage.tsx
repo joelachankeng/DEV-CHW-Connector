@@ -6,7 +6,7 @@ import type { iGenericError } from "~/models/appContext.model";
 
 type ErrorPageProps = {
   title?: string;
-  description?: string;
+  description?: string | JSX.Element;
   status?: string;
   className?: string;
 };

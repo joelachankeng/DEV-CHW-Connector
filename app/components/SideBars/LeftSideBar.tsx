@@ -93,7 +93,7 @@ export default function LeftSideBar({
       >
         <div
           className={classNames(
-            "flex items-center justify-between gap-2",
+            "relative z-10 flex items-center justify-between gap-2",
             sidebarOpen ? "mb-2" : "mb-5",
           )}
         >

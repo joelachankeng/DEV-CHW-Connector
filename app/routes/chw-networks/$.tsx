@@ -18,7 +18,7 @@ import InfoSideBarGroupTemplate, {
 } from "~/components/SideBars/InfoSideBar.GroupTemplate";
 import Drawer from "~/components/Drawer";
 import PostAddNew from "~/components/Posts/PostAddNew";
-import { useLoaderData, useOutletContext } from "@remix-run/react";
+import { json, useLoaderData, useOutletContext } from "@remix-run/react";
 import type { iCHWNetworkContextState } from "../chw-networks";
 import { AppContext } from "~/contexts/appContext";
 import { CHWNetwork } from "~/controllers/CHWNetwork.control";
@@ -26,6 +26,7 @@ import { UserPublic } from "~/controllers/user.control.public";
 import type { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
 import { EllipsisHorizontalIcon } from "@heroicons/react/20/solid";
 import { ErrorComponent } from "~/components/Pages/ErrorPage";
+import { getUserSessionToken } from "~/servers/userSession.server";
 
 const sortByOptions = ["Recent", "Popular"];
 const sortByOptionsMap = sortByOptions.map((option) => ({
@@ -33,11 +34,17 @@ const sortByOptionsMap = sortByOptions.map((option) => ({
   value: option.toLowerCase(),
 }));
 
+type iLoaderData = {
+  network?: iWP_CHWNetwork;
+};
 export const loader: LoaderFunction = async ({ request, params }) => {
   let userId = -1;
   const getUser = await User.Utils.getUserFromSession(request);
   if (getUser && !(getUser instanceof Error)) {
-    userId = getUser.databaseId;
+    const userToken = await getUserSessionToken(request);
+    if (userToken) {
+      userId = getUser.databaseId;
+    }
   }
 
   const paramId = params["*"];
@@ -49,17 +56,15 @@ export const loader: LoaderFunction = async ({ request, params }) => {
     networkId.toString(),
   );
 
-  return {
-    network: network instanceof Error ? undefined : network,
-  };
+  return json<iLoaderData>({
+    network: network instanceof Error || network === null ? undefined : network,
+  });
 };
 export default function CHWNetworkSingle() {
   const { appContext } = useContext(AppContext);
   const { layoutContext } = useOutletContext<iCHWNetworkContextState>();
 
-  const { network } = useLoaderData() as {
-    network: undefined | iWP_CHWNetwork;
-  };
+  const { network } = useLoaderData<iLoaderData>();
 
   const [networkState, setNetworkState] = useState<iWP_CHWNetwork | undefined>(
     network,
@@ -142,9 +147,10 @@ export default function CHWNetworkSingle() {
 
   // TOFIX: I want to get rid of this useEffect but doing that prevents the overflowing useEffect on Post.tsx from running
   useEffect(() => {
+    if (mounted) return;
     handlePostSubmit();
     setMounted(true);
-  }, []);
+  }, [handlePostSubmit, mounted]);
 
   const handleUpdateFollowing = (
     following: "REMOVE" | "ADD",

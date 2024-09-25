@@ -1,64 +1,70 @@
 import { Form, Link, useNavigate } from "@remix-run/react";
-import { useContext, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { APP_ROUTES } from "~/constants";
-import type { iWP_Post } from "~/models/post.model";
+import type { iWP_Comment } from "~/models/post.model";
 import { AppContext } from "~/contexts/appContext";
 import Avatar from "../User/Avatar";
 import type { OutputData } from "@editorjs/editorjs";
 import type EditorJS from "@editorjs/editorjs";
-import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
+import type { iGenericError } from "~/models/appContext.model";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
+import type { iPostEditorPropSetter } from "./Editor/PostEditor";
 import PostEditor, { EDITOR_ERROR_MESSAGE } from "./Editor/PostEditor";
+import type { iCreatePostComment } from "~/controllers/feed.control";
 
 export default function PostCommentEditor({
   postId,
+  parentId = 0,
   onSubmit,
 }: {
   postId: number;
-  onSubmit: (
-    comment: iWP_Post["postFields"]["totalComments"]["collection"][0],
-  ) => void;
+  parentId?: number;
+  onSubmit: (comment: iWP_Comment) => void;
 }) {
-  const editorHolderId = `post-${postId}-comment-editor`;
+  const editorHolderId = `post-${postId}-commentParent-${parentId}-comment-editor`;
 
   const { appContext } = useContext(AppContext);
-  const editorRef = useRef<EditorJS>();
   const navigate = useNavigate();
 
-  const [commentData, setCommentData] = useState<OutputData["blocks"]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  const [startSubmit, setStartSubmit] = useState<boolean>(false);
+  const hasSubmitted = useRef<boolean | undefined>(undefined);
+
+  const editorRef = useRef<EditorJS>();
+  const commentData = useRef<OutputData["blocks"]>([]);
+  const postEditorPropSetter = useRef<iPostEditorPropSetter>();
+
   const { state: commentFetchState, submit: commentFetchSubmit } =
-    useAutoFetcher<iGenericSuccess | iGenericError>(
+    useAutoFetcher<iCreatePostComment | iGenericError>(
       "/api/comment/create",
       (data) => {
+        setStartSubmit(false);
+        hasSubmitted.current = undefined;
+
+        postEditorPropSetter.current?.setSubmitting(false);
+
         editorRef.current?.readOnly
           .toggle(false)
           .then(() => {
             if ("success" in data) {
               editorRef.current?.clear();
+              commentData.current = [];
+              if (!data.comment) {
+                setErrorMessage(
+                  "An error occurred retrieving the comment data. Please try again.",
+                );
+                return;
+              }
 
-              const currentDate = new Date().toISOString();
-
-              const newComment: iWP_Post["postFields"]["totalComments"]["collection"][0] =
-                {
-                  createdDate: currentDate,
-                  modifiedDate: currentDate,
-                  databaseId: new Date().getTime(),
-                  parentId: undefined,
-                  postId: postId,
-                  content: JSON.stringify({
-                    blocks: commentData,
-                  }),
-                  author: {
-                    avatarUrl: appContext.User?.avatar.url || "",
-                    databaseId: appContext.User?.databaseId || 0,
-                    firstName: appContext.User?.firstName || "",
-                    lastName: appContext.User?.lastName || "",
-                  },
-                };
-
-              setCommentData([]);
+              const newComment: iWP_Comment = data.comment;
               onSubmit(newComment);
             }
 
@@ -76,42 +82,73 @@ export default function PostCommentEditor({
     );
 
   const handleDataOnChange = (blocks: OutputData["blocks"]) => {
+    commentData.current = blocks;
     if (blocks.length === 0) {
       //
     } else {
       //
     }
-    setCommentData(blocks);
   };
 
-  const handleSubmitComment = (
-    editor: EditorJS,
-    blockData: OutputData["blocks"],
-  ) => {
-    if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
-    console.log(blockData);
-    if (blockData == undefined || blockData.length == 0) return;
-    if (!editorRef.current) return setErrorMessage(EDITOR_ERROR_MESSAGE);
+  useEffect(() => {
+    if (commentFetchState !== "idle") return;
+    if (startSubmit && hasSubmitted.current === false) {
+      postEditorPropSetter.current?.setSubmitting(true);
+      commentFetchSubmit(
+        {
+          postId: postId.toString(),
+          parentId: parentId.toString(),
+          comment: JSON.stringify({
+            blocks: commentData.current,
+          }),
+        },
+        "POST",
+      );
+      hasSubmitted.current = true;
+    }
+  }, [commentFetchState, commentFetchSubmit, parentId, postId, startSubmit]);
 
-    editorRef.current.readOnly
-      .toggle(true)
-      .then(() => {
-        commentFetchSubmit(
-          {
-            postId: postId.toString(),
-            parentId: "",
-            comment: JSON.stringify({
-              blocks: blockData,
-            }),
-          },
-          "POST",
-        );
-      })
-      .catch((error) => {
-        console.error("Error: ", error);
-        setErrorMessage(EDITOR_ERROR_MESSAGE);
-      });
-  };
+  const handleSubmitComment = useCallback(
+    (_editor: EditorJS, blockData: OutputData["blocks"]) => {
+      if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
+      if (blockData == undefined || blockData.length == 0) return;
+      if (!editorRef.current) return setErrorMessage(EDITOR_ERROR_MESSAGE);
+
+      editorRef.current.readOnly
+        .toggle(true)
+        .then(() => {
+          commentData.current = blockData;
+
+          setStartSubmit(true);
+          hasSubmitted.current = false;
+        })
+        .catch((error) => {
+          console.error("Error: ", error);
+          setErrorMessage(EDITOR_ERROR_MESSAGE);
+        });
+    },
+    [appContext.User, navigate],
+  );
+
+  const createEditor = useMemo(
+    () => (
+      <PostEditor
+        editorRef={editorRef}
+        containerClassNames="!w-full"
+        blockData={commentData.current}
+        editorHolderId={editorHolderId}
+        editorPlaceholder={
+          appContext.User ? "Add a comment..." : "Please log in to comment."
+        }
+        preventWindowClosingMessage="You have unsaved changes in your comment. Are you sure you want to close the window?"
+        submitTooltipText={appContext.User ? "Post Comment" : "Log In"}
+        onSubmit={handleSubmitComment}
+        onChange={(data) => handleDataOnChange(data)}
+        propSetter={postEditorPropSetter}
+      />
+    ),
+    [editorHolderId, appContext.User, handleSubmitComment],
+  );
 
   return (
     <>
@@ -120,7 +157,7 @@ export default function PostCommentEditor({
         method="post"
         onSubmit={() => {
           if (!editorRef.current) return;
-          handleSubmitComment(editorRef.current, commentData);
+          handleSubmitComment(editorRef.current, commentData.current);
         }}
       >
         <div
@@ -140,22 +177,7 @@ export default function PostCommentEditor({
             </Link>
           </div>
           <div className="flex w-full flex-col gap-1">
-            <PostEditor
-              editorRef={editorRef}
-              containerClassNames="!w-full"
-              blockData={commentData}
-              editorHolderId={editorHolderId}
-              editorPlaceholder={
-                appContext.User
-                  ? "Add a comment..."
-                  : "Please log in to comment."
-              }
-              preventWindowClosingMessage="You have unsaved changes in your comment. Are you sure you want to close the window?"
-              submitTooltipText={appContext.User ? "Post Comment" : "Log In"}
-              isSubmitting={commentFetchState !== "idle"}
-              onSubmit={handleSubmitComment}
-              onChange={(data) => handleDataOnChange(data)}
-            />
+            {createEditor}
             {errorMessage && (
               <p className="">
                 <span className="font-semibold text-red-800">

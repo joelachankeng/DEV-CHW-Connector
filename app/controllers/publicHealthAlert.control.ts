@@ -1,11 +1,20 @@
 import { gql } from "@apollo/client/core/core.cjs";
-import { GraphQL } from "./graphql.control";
+import type { iGraphQLPageInfo, iGraphQLPagination } from "./graphql.control";
 import {
+  createGraphQLPagination,
+  GraphQL,
+  GRAPHQL_CONSTANTS,
+  printGraphQLPagination,
+} from "./graphql.control";
+import type {
   iWP_PublicHealthAlert,
   iWP_PublicHealthAlerts,
 } from "~/models/publicHealthAlert.model";
 
-export abstract class publicHealthAlert {
+export type iWP_PublicHealthAlert_Pagination = iWP_PublicHealthAlerts &
+  iGraphQLPageInfo;
+
+export abstract class PublicHealthAlert {
   static API = class {
     public static async getMostRecentAlert(): Promise<
       iWP_PublicHealthAlert | null | Error
@@ -29,11 +38,9 @@ export abstract class publicHealthAlert {
             }
           }
         `,
-        async (response: {
-          data: { publicHealthAlerts: iWP_PublicHealthAlerts };
-        }) => {
-          return response.data.publicHealthAlerts
-            .nodes[0] as iWP_PublicHealthAlert | null;
+        async (response) => {
+          return (await response.data.publicHealthAlerts
+            .nodes[0]) as iWP_PublicHealthAlert | null;
         },
       );
     }
@@ -56,19 +63,23 @@ export abstract class publicHealthAlert {
         }
       `,
         async (response) => {
-          return response.data
-            .publicHealthAlert as iWP_PublicHealthAlert | null;
+          return (await response.data
+            .publicHealthAlert) as iWP_PublicHealthAlert | null;
         },
       );
     }
 
-    public static async getAlerts(): Promise<iWP_PublicHealthAlerts | Error> {
-      return await GraphQL.query<iWP_PublicHealthAlerts>(
+    public static async getAlerts(
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_PublicHealthAlert_Pagination | Error> {
+      return await GraphQL.query<iWP_PublicHealthAlert_Pagination>(
         gql`
           query MyQuery {
             publicHealthAlerts(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
               where: { orderby: { field: DATE, order: DESC } }
             ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 databaseId
                 date
@@ -82,7 +93,8 @@ export abstract class publicHealthAlert {
           }
         `,
         async (response) => {
-          return response.data.publicHealthAlerts;
+          return (await response.data
+            .publicHealthAlerts) as iWP_PublicHealthAlert_Pagination;
         },
       );
     }

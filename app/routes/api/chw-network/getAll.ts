@@ -1,6 +1,11 @@
-import { ActionFunctionArgs, json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { CHWNetwork } from "~/controllers/CHWNetwork.control";
 import { Feed } from "~/controllers/feed.control";
+import {
+  createGraphQLPagination,
+  GRAPHQL_CONSTANTS,
+} from "~/controllers/graphql.control";
 import { getJWTUserDataFromSession } from "~/servers/userSession.server";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -10,10 +15,19 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const formData = await request.formData();
+  const after = formData.get("after") as string;
 
   const userId = JWTUser.user.ID;
 
-  const result = await CHWNetwork.API.getAll(userId.toString());
+  let pagination = createGraphQLPagination();
+  if (after) {
+    pagination = createGraphQLPagination({
+      first: GRAPHQL_CONSTANTS.PAGINATION.MAX_ROWS,
+      after,
+    });
+  }
+
+  const result = await CHWNetwork.API.getAll(userId.toString(), pagination);
 
   if (result instanceof Error) {
     return json({ error: result.message }, { status: 400 });

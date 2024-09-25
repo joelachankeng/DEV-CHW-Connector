@@ -1,0 +1,34 @@
+export type iWP_Message = {
+  databaseId: number;
+  date: string;
+  author: {
+    node: {
+      databaseId: number;
+      firstName?: string;
+      lastName?: string;
+      avatar: {
+        url?: string;
+      };
+    };
+  };
+  messageFields: {
+    receiverId: number;
+    content: string;
+    read: boolean;
+  };
+};
+
+export type iWP_Messages = {
+  nodes: iWP_Message[];
+};
+
+export type iWP_Conversations = {
+  unreadCount: number;
+  user: {
+    lastName: string;
+    firstName: string;
+    databaseId: number;
+    avatar: { url: string };
+  };
+  message: iWP_Message;
+};

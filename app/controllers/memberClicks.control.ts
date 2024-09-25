@@ -6,6 +6,7 @@ import type {
   iMemberClicksProfilesResult,
   iMemberClicksProfileAttributes,
   iMemberClicksAccessTokenResponse,
+  iPublic_MemberClicksProfileAttributes,
 } from "~/models/memberClicks.model";
 import { APP_KEYS } from "~/session.server";
 import { getRequestDomain } from "~/utilities/main";
@@ -179,6 +180,34 @@ export abstract class MemberClicks {
     accessToken: string,
     profileId: string,
   ): Promise<
+    | iPublic_MemberClicksProfileAttributes
+    | iMemberClicksProfileSearchError
+    | iMemberClicksError
+  >;
+  public static async getProfileById(
+    accessToken: string,
+    profileId: string,
+    privateFields: false,
+  ): Promise<
+    | iPublic_MemberClicksProfileAttributes
+    | iMemberClicksProfileSearchError
+    | iMemberClicksError
+  >;
+  public static async getProfileById(
+    accessToken: string,
+    profileId: string,
+    privateFields: true,
+  ): Promise<
+    | iMemberClicksProfileAttributes
+    | iMemberClicksProfileSearchError
+    | iMemberClicksError
+  >;
+  public static async getProfileById(
+    accessToken: string,
+    profileId: string,
+    privateFields?: boolean,
+  ): Promise<
+    | iPublic_MemberClicksProfileAttributes
     | iMemberClicksProfileAttributes
     | iMemberClicksProfileSearchError
     | iMemberClicksError
@@ -197,7 +226,11 @@ export abstract class MemberClicks {
       if (response.status !== 200) return response.data as iMemberClicksError;
       if ("error" in response.data)
         return response.data as iMemberClicksProfileSearchError;
-      return response.data as iMemberClicksProfileAttributes;
+
+      const data = response.data as iMemberClicksProfileAttributes;
+      if (privateFields !== true)
+        return this.publicizeMemberClicksProfileResult(data);
+      return data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         return error.response?.data as iMemberClicksError;
@@ -248,4 +281,30 @@ export abstract class MemberClicks {
     if (state) return `${MC_URL}&state=${state}`;
     return MC_URL;
   }
+
+  public static publicizeMemberClicksProfileResult = (
+    result: iMemberClicksProfileAttributes,
+  ): iPublic_MemberClicksProfileAttributes => {
+    const PUBLIC_FIELDS: (keyof iMemberClicksProfileAttributes)[] = [
+      "[Profile ID]",
+      "[Name | First]",
+      "[Name | Last]",
+      "[Contact Name]",
+      "[Email | Primary]",
+      "[Email | Preferred]",
+      "[Email | Contact Email]",
+      "[Username]",
+      "[Deleted]",
+      "[Member Type]",
+    ];
+
+    const newResult: iPublic_MemberClicksProfileAttributes = {};
+    for (const key of PUBLIC_FIELDS) {
+      const value = result[key];
+      if (!value) continue;
+      newResult[key] = value;
+    }
+
+    return newResult;
+  };
 }

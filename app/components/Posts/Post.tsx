@@ -4,28 +4,44 @@ import SVGComment from "~/assets/SVGs/SVGComment";
 import SVGReact from "~/assets/SVGs/SVGReact";
 import SVGShare from "~/assets/SVGs/SVGShare";
 import { APP_ROUTES } from "~/constants";
-import type { iWP_Post } from "~/models/post.model";
+import type { iWP_Comment, iWP_Post } from "~/models/post.model";
 import { faBookmark, faFlag, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { DateTime } from "luxon";
 import { ClientOnly } from "remix-utils/client-only";
 import { EditorBlock } from "../Editor/EditorBlock";
 import type { OutputData } from "@editorjs/editorjs";
-import { useContext, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type EditorJS from "@editorjs/editorjs";
 import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
 import { classNames } from "~/utilities/main";
 import Avatar from "../User/Avatar";
 import { AppContext } from "~/contexts/appContext";
 import type { iNotificationItem_General } from "../Managers/Notification/NotificationItem";
-import type { iEmojiPickerIcon } from "~/utilities/hooks/useEmojiMart";
-import { useEmojiMart } from "~/utilities/hooks/useEmojiMart";
+import type {
+  EMOJI_SELECTED_EVENT,
+  iEmojiPickerIcon,
+} from "~/utilities/hooks/useEmojiMart";
+import {
+  dispatchShowMobilePicker,
+  EMOJIMART_EVENTS,
+  useEmojiMart,
+} from "~/utilities/hooks/useEmojiMart";
 import PostEmojis, { calcUserUpdateReaction } from "./PostEmojis";
 import ButtonLoadMore from "../ButtonLoadMore";
 import ModalShare from "../Modals/ModalShare";
 import PostCommentEditor from "./PostCommentEditor";
 import { Collapse } from "@kunukn/react-collapse";
-import PostCommentsThread from "./PostCommentsThread";
+import PostCommentsThread, {
+  dispatchAddCommentEvent,
+} from "./PostCommentsThread";
 import type { iContextMenuProps } from "../ContextMenu";
 import ContextMenu from "../ContextMenu";
 import ModalNotification from "../Modals/ModalNotification";
@@ -36,7 +52,7 @@ export default function Post({ post }: { post: iWP_Post }) {
   const navigate = useNavigate();
   const { NotificationManager } = appContext;
 
-  const { EmojiMart, showEmojiMart, setShowEmojiMart } = useEmojiMart();
+  const { EmojiMart, EmojiMartMobile } = useEmojiMart();
   const fetcher = useFetcher();
 
   const editorRef = useRef<EditorJS>();
@@ -52,6 +68,7 @@ export default function Post({ post }: { post: iWP_Post }) {
   const [deleteModal, setDeleteModal] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
   const [isCommentCollapsed, setIsCommentCollapsed] = useState(true);
+  const [showEmojiMart, setShowEmojiMart] = useState<boolean>(false);
 
   const editorHolderId = `post-editor-${updatedPost.databaseId}`;
 
@@ -70,7 +87,7 @@ export default function Post({ post }: { post: iWP_Post }) {
       .catch((error) => {
         console.error("Error on editorRef.current?.isReady", error);
       });
-  }, [editorRef.current]);
+  }, [editorHolderId]);
 
   useEffect(() => {
     if (fetcher.state !== "idle") return;
@@ -239,6 +256,8 @@ export default function Post({ post }: { post: iWP_Post }) {
       },
     }));
     setAction("REPORT");
+    setIsCommentCollapsed(true);
+    document.body.click(); // Close the context menu
   };
 
   const handleDeletePost = () => {
@@ -315,6 +334,24 @@ export default function Post({ post }: { post: iWP_Post }) {
 
     setAction("REACT");
   };
+
+  const handlePostCommentSubmit = useCallback(
+    (comment: iWP_Comment) => {
+      dispatchAddCommentEvent(post.databaseId, comment);
+      setUpdatedPost((prev) => ({
+        ...prev,
+        postFields: {
+          ...prev.postFields,
+          totalComments: prev.postFields.totalComments + 1,
+          firstComments: {
+            total: prev.postFields.firstComments.total + 1,
+            nodes: [comment, ...prev.postFields.firstComments.nodes],
+          },
+        },
+      }));
+    },
+    [post.databaseId],
+  );
 
   const getMenuITtems = (): iContextMenuProps["items"] => {
     const menuITtems = [
@@ -410,6 +447,90 @@ export default function Post({ post }: { post: iWP_Post }) {
 
     return defaultDetails;
   };
+  useEffect(() => {
+    const handleEmojiSelectListener = (event: EMOJI_SELECTED_EVENT) => {
+      const { emoji, id } = event.detail;
+      if (id !== updatedPost.databaseId.toString()) return;
+      handleEmojiSelect(emoji);
+    };
+
+    window.addEventListener(
+      EMOJIMART_EVENTS.EMOJI_SELECTED,
+      handleEmojiSelectListener as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        EMOJIMART_EVENTS.EMOJI_SELECTED,
+        handleEmojiSelectListener as EventListener,
+      );
+    };
+  }, []);
+
+  const emojiMartPickerOptions = {
+    skinTonePosition: "none",
+    skin: 1,
+    dynamicWidth: true,
+    onEmojiSelect: (emoji: iEmojiPickerIcon) => handleEmojiSelect(emoji),
+    onClickOutside: () => setShowEmojiMart(false),
+  };
+
+  const createEditorReadOnly = useMemo(
+    () => (
+      <EditorBlock
+        onEditor={(editor: EditorJS | undefined) => {
+          editorRef.current = editor as EditorJS;
+        }}
+        onReady={() => {
+          // TO FIX: for some reason, updating the state on rhis function prevents the data from being loaded
+          // console.log(
+          //   "Editor Ready",
+          //   editorHolderId,
+          //   editorRef.current?.isReady,
+          // );
+          // editorRef.current?.isReady?.then(() => {
+          //   console.log(
+          //     "Editor Ready",
+          //     editorHolderId,
+          //     editorRef.current?.isReady,
+          //   );
+          //   const editorHolder =
+          //     document.getElementById(editorHolderId);
+          //   if (!editorHolder) return;
+          //   const isOverflowing =
+          //     editorHolder.scrollHeight > editorHolder.clientHeight;
+          //   setIsOverflowing(isOverflowing);
+          // });
+        }}
+        data={calcEditorData(updatedPost.postFields.content)}
+        holder={editorHolderId}
+        readOnly={true}
+        className={classNames(
+          "relative z-0 min-h-[100px] overflow-hidden transition-all duration-300 ease-in-out",
+          isOverflowing && isCollapsed
+            ? "before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-full before:bg-[linear-gradient(transparent_10%,white)] before:content-['']"
+            : "",
+          // isCollapsed ? "max-h-28" : "", //TODO: Fix this
+        )}
+      />
+    ),
+    [
+      editorHolderId,
+      isCollapsed,
+      isOverflowing,
+      updatedPost.postFields.content,
+    ],
+  );
+
+  const createPostCommentEditor = useMemo(
+    () => (
+      <PostCommentEditor
+        postId={updatedPost.databaseId}
+        onSubmit={handlePostCommentSubmit}
+      />
+    ),
+    [handlePostCommentSubmit, updatedPost.databaseId],
+  );
 
   if (isDeleted) {
     return <></>;
@@ -522,48 +643,7 @@ export default function Post({ post }: { post: iWP_Post }) {
               items={getMenuITtems()}
             />
           </div>
-          <ClientOnly fallback={<></>}>
-            {() => (
-              <>
-                <EditorBlock
-                  onEditor={(editor: EditorJS | undefined) => {
-                    editorRef.current = editor as EditorJS;
-                  }}
-                  onReady={() => {
-                    // TO FIX: for some reason, updating the state on rhis function prevents the data from being loaded
-                    // console.log(
-                    //   "Editor Ready",
-                    //   editorHolderId,
-                    //   editorRef.current?.isReady,
-                    // );
-                    // editorRef.current?.isReady?.then(() => {
-                    //   console.log(
-                    //     "Editor Ready",
-                    //     editorHolderId,
-                    //     editorRef.current?.isReady,
-                    //   );
-                    //   const editorHolder =
-                    //     document.getElementById(editorHolderId);
-                    //   if (!editorHolder) return;
-                    //   const isOverflowing =
-                    //     editorHolder.scrollHeight > editorHolder.clientHeight;
-                    //   setIsOverflowing(isOverflowing);
-                    // });
-                  }}
-                  data={calcEditorData(updatedPost.postFields.content)}
-                  holder={editorHolderId}
-                  readOnly={true}
-                  className={classNames(
-                    "relative z-0 min-h-[100px] overflow-hidden transition-all duration-300 ease-in-out",
-                    isOverflowing && isCollapsed
-                      ? "before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-full before:bg-[linear-gradient(transparent_10%,white)] before:content-['']"
-                      : "",
-                    // isCollapsed ? "max-h-28" : "", //TODO: Fix this
-                  )}
-                />
-              </>
-            )}
-          </ClientOnly>
+          <ClientOnly fallback={<></>}>{() => createEditorReadOnly}</ClientOnly>
           {isOverflowing && isCollapsed && (
             <ButtonLoadMore
               text="See More"
@@ -590,8 +670,8 @@ export default function Post({ post }: { post: iWP_Post }) {
                 onClick={() => setIsCommentCollapsed(!isCommentCollapsed)}
                 className="text-[#032525] transition duration-300 ease-in-out hover:font-medium"
               >
-                {`${updatedPost.postFields.totalComments.count} ${
-                  updatedPost.postFields.totalComments.count > 1
+                {`${updatedPost.postFields.totalComments} ${
+                  updatedPost.postFields.totalComments > 1
                     ? "Comments"
                     : "Comment"
                 }`}
@@ -626,14 +706,7 @@ export default function Post({ post }: { post: iWP_Post }) {
                   "post-react-button-emoji-mart",
                   "h-60 w-full",
                 )}
-                pickerOptions={{
-                  skinTonePosition: "none",
-                  skin: 1,
-                  dynamicWidth: true,
-                  onEmojiSelect: (emoji: iEmojiPickerIcon) =>
-                    handleEmojiSelect(emoji),
-                  onClickOutside: () => setShowEmojiMart(false),
-                }}
+                pickerOptions={emojiMartPickerOptions}
               />
             </Collapse>
           </div>
@@ -644,7 +717,11 @@ export default function Post({ post }: { post: iWP_Post }) {
                 onClick={(e) => {
                   e.preventDefault();
                   if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
-                  setShowEmojiMart(!showEmojiMart);
+                  if (window.innerWidth < 768) {
+                    dispatchShowMobilePicker(updatedPost.databaseId.toString());
+                  } else {
+                    setShowEmojiMart(!showEmojiMart);
+                  }
                 }}
                 className="flex items-center gap-2.5 hover:text-chw-light-purple max-xxs:flex-col"
               >
@@ -689,34 +766,16 @@ export default function Post({ post }: { post: iWP_Post }) {
                   : { maxHeight: "none", overflow: "visible" }
               }
             >
-              <PostCommentEditor
-                postId={updatedPost.databaseId}
-                onSubmit={(comment) => {
-                  console.log("Commented", comment);
+              {createPostCommentEditor}
 
-                  setUpdatedPost((prev) => ({
-                    ...prev,
-                    postFields: {
-                      ...prev.postFields,
-                      totalComments: {
-                        count: prev.postFields.totalComments.count + 1,
-                        collection: [
-                          comment,
-                          ...prev.postFields.totalComments.collection,
-                        ],
-                      },
-                    },
-                  }));
-                }}
-              />
-
-              {updatedPost.postFields.totalComments.count > 0 && (
+              {updatedPost.postFields.totalComments > 0 && (
                 <>
                   <div className="my-5 w-full border border-[#C1BAB4]"></div>
                   <PostCommentsThread
                     root={true}
-                    totalComments={updatedPost.postFields.totalComments}
+                    totalComments={updatedPost.postFields.firstComments}
                     post={updatedPost}
+                    total={updatedPost.postFields.firstComments.total}
                   />
                 </>
               )}
@@ -738,7 +797,8 @@ export function calcEditorData(editorSavedData: string): OutputData {
     blocks: [],
   };
   try {
-    editorData = JSON.parse(editorSavedData) as OutputData;
+    const convertedData = decodeURIComponent(atob(editorSavedData));
+    editorData = JSON.parse(convertedData) as OutputData;
   } catch (error) {
     editorData.blocks = [
       {
@@ -750,4 +810,20 @@ export function calcEditorData(editorSavedData: string): OutputData {
     ];
   }
   return editorData as OutputData;
+}
+
+export function getParagraphTextFromEditorData(
+  editorSavedData: string,
+): string {
+  const editorData = calcEditorData(editorSavedData);
+  if (!editorData.blocks) return "";
+  if (editorData.blocks.length === 0) return "";
+
+  const paragraphBlock = editorData.blocks.find(
+    (block) => block.type === "paragraph",
+  );
+  if (paragraphBlock) {
+    return paragraphBlock.data.text;
+  }
+  return `[${editorData.blocks[0].type}]`;
 }

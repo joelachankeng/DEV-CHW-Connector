@@ -6,7 +6,7 @@ import SVGFeed from "~/assets/SVGs/SVGFeed";
 import { URLsMatches, classNames } from "~/utilities/main";
 import { useEffect, useState } from "react";
 import { EllipsisHorizontalIcon } from "@heroicons/react/20/solid";
-import { themeOptions } from "~/controllers/themeOptions.control";
+import { ThemeOptions } from "~/controllers/themeOptions.control";
 import type { iThemeOptions_PublicHealthAlerts } from "~/models/themeOptions.model";
 import { APP_CLASSNAMES, APP_ROUTES } from "~/constants";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
@@ -28,7 +28,7 @@ const layoutMenu = [
 ];
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const settings = await themeOptions.API.getPublicHealthAlerts();
+  const settings = await ThemeOptions.API.getPublicHealthAlerts();
 
   return {
     settings: settings instanceof Error ? null : settings,
@@ -38,7 +38,6 @@ export default function PublicHealthAlertsLayout() {
   const { settings } = useLoaderData() as {
     settings: null | iThemeOptions_PublicHealthAlerts;
   };
-  console.log(settings);
 
   const location = useLocation();
   const mediaQuery = useMediaSize();

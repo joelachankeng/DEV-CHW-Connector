@@ -185,9 +185,10 @@ export default class Embed {
         }
       });
 
-      container.appendChild(input);
-      container.appendChild(heading);
-
+      if (this.readOnly == false) {
+        container.appendChild(input);
+        container.appendChild(heading);
+      }
       this.element = container;
       return container;
     }
@@ -221,9 +222,13 @@ export default class Embed {
     container.appendChild(template.content.firstChild);
     container.appendChild(caption);
 
-    embedIsReady.then(() => {
-      container.classList.remove(this.CSS.containerLoading);
-    });
+    embedIsReady
+      .then(() => {
+        container.classList.remove(this.CSS.containerLoading);
+      })
+      .catch(() => {
+        container.classList.remove(this.CSS.containerLoading);
+      });
 
     this.element = container;
 

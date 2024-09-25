@@ -207,11 +207,12 @@ export default function NotificationItem({
                 </Link>
               </div>
               <div className="text-sm font-normal">
-                <div className="mb-2 line-clamp-2 text-sm font-normal">
+                <div className="mb-2 line-clamp-2 py-1 text-sm font-normal text-chw-dark-green">
                   {data.message}
                 </div>
                 <Link
                   to={data.contentURL}
+                  onClick={() => triggerOnDelete(true)}
                   className={classNames(
                     "cursor-pointer bg-chw-light-purple text-white hover:bg-chw-dark-purple",
                     "w-full rounded-[40px] border-[none] px-3 py-2 text-center text-xs font-medium transition duration-300 ease-in-out",
@@ -265,6 +266,7 @@ export default function NotificationItem({
                 {statement}{" "}
                 <Link
                   to={data.contentURL}
+                  onClick={() => triggerOnDelete(true)}
                   className="font-semibold text-chw-light-purple transition duration-300 ease-in-out hover:underline"
                 >
                   {contentTypeName}

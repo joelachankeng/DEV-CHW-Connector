@@ -1,7 +1,16 @@
 import { memo, useEffect, useRef } from "react";
-
-import EditorJS, { type OutputData, EDITOR_TOOLS } from "./editor.client";
+import EditorJS, {
+  type iEditor_Tools_Config,
+  EDITOR_TOOLS,
+  type OutputData,
+} from "./editor.client";
 import _ from "lodash";
+import {
+  getStringWithEmojisLength,
+  hasSingleEmoji,
+  isAllEmojis,
+} from "~/utilities/main";
+import type { API, BlockMutationEvent } from "@editorjs/editorjs";
 
 export const EditorComponent = ({
   data,
@@ -9,6 +18,8 @@ export const EditorComponent = ({
   readOnly = false,
   className = "prose border rounded-lg px-10 py-3 w-full",
   placeholder,
+  dataContentId,
+  editorToolsConfig,
   onReady,
   onChange,
   onEditor,
@@ -18,6 +29,8 @@ export const EditorComponent = ({
   readOnly?: boolean;
   className?: string;
   placeholder?: string;
+  dataContentId?: string;
+  editorToolsConfig?: iEditor_Tools_Config;
   onReady?(): void;
   onChange?(val: OutputData): void;
   onEditor(editor: EditorJS): void;
@@ -35,15 +48,19 @@ export const EditorComponent = ({
         holder: holder,
         readOnly: readOnly,
         placeholder: placeholder,
-        // @ts-ignore
-        tools: EDITOR_TOOLS,
+        tools: EDITOR_TOOLS(editorToolsConfig) as unknown as never, // type was not provided by the library
         autofocus: false,
         minHeight: 0,
         data: data,
         onReady: () => {
+          updateParagaphBlocks(editor);
           onReady?.();
         },
-        async onChange(api: { saver: { save: () => any } }, event: any) {
+        async onChange(
+          api: API,
+          event: BlockMutationEvent | BlockMutationEvent[],
+        ) {
+          updateParagaphBlocks(editor);
           if (readOnly) return;
           const data = await api.saver.save();
           if (onChange) onChange(data);
@@ -64,11 +81,25 @@ export const EditorComponent = ({
         editorRef.current.destroy();
       }
     };
-  }, [holder, editorRef.current]);
+  }, [
+    holder,
+    readOnly,
+    placeholder,
+    data,
+    onEditor,
+    onReady,
+    onChange,
+    editorToolsConfig,
+  ]);
 
   return (
     <>
-      <div id={holder} className={className} data-readonly={readOnly} />
+      <div
+        id={holder}
+        className={className}
+        data-readonly={readOnly}
+        data-content-id={dataContentId}
+      />
     </>
   );
 };
@@ -105,5 +136,35 @@ function updateEditorToolbar(e: MouseEvent) {
     document.querySelectorAll(".editor-top-parent").forEach((el) => {
       el.classList.remove("editor-top-parent-active");
     });
+  }
+}
+
+function updateParagaphBlocks(editor: EditorJS) {
+  const blocksLength = editor.blocks.getBlocksCount();
+
+  for (let i = 0; i < blocksLength; i++) {
+    const block = editor.blocks.getBlockByIndex(i);
+    if (!block) continue;
+    if (block.name !== "paragraph") continue;
+
+    const paragraph = block.holder as HTMLElement;
+    if (!paragraph) continue;
+
+    const text = paragraph.innerText;
+
+    if (isAllEmojis(text)) {
+      const textLength = getStringWithEmojisLength(text);
+      if (textLength <= 3) {
+        paragraph.classList.add("single-emoji");
+      } else {
+        if (hasSingleEmoji(text)) {
+          paragraph.classList.add("single-emoji");
+        } else {
+          paragraph.classList.remove("single-emoji");
+        }
+      }
+    } else {
+      paragraph.classList.remove("single-emoji");
+    }
   }
 }

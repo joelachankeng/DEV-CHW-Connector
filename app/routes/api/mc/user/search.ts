@@ -1,12 +1,11 @@
-import { ActionFunctionArgs, HeadersFunction, json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { MemberClicks } from "~/controllers/memberClicks.control";
+import type { iMemberClicksProfileAttributes } from "~/models/memberClicks.model";
 import { getMemberClicksSessionToken } from "~/servers/memberClicksSession.server";
-import { cors } from "remix-utils/cors";
 
 // DONT NEED TO BE LOGGED IN
 export async function action({ request }: ActionFunctionArgs) {
-  // await restrictRequest(request);
-
   const mcToken = await getMemberClicksSessionToken(request);
 
   if (!mcToken) {
@@ -15,9 +14,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const formData = await request.formData();
 
-  let jsonData: { [key: string]: any } = {};
+  const jsonData: { [key: string]: string | number } = {};
   for (const [key, value] of formData.entries()) {
-    jsonData[key] = value;
+    if (!(typeof value === "string") && !(typeof value === "number")) continue;
+    jsonData[key as string] = value;
   }
 
   const result = await MemberClicks.profileSearch(mcToken, jsonData);
@@ -31,16 +31,12 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ profiles }, { status: 400 });
   }
 
-  return json(profiles);
-}
+  const publicProfiles = profiles.profiles.map((profile) =>
+    MemberClicks.publicizeMemberClicksProfileResult(
+      profile as iMemberClicksProfileAttributes,
+    ),
+  );
 
-// TODO: RESTRICT ALL REQUESTS TO SAME ORIGIN
-async function restrictRequest(request: Request) {
-  const origin = request.headers.get("Origin");
-  const host = request.headers.get("Host");
-  let response = json(host);
-  return await cors(request, response, {
-    origin: ["www.nachw.org"],
-  });
-  return json({ host });
+  profiles.profiles = publicProfiles as typeof profiles.profiles;
+  return json(profiles);
 }

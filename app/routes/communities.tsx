@@ -1,12 +1,12 @@
-import { LoaderFunction, json } from "@remix-run/node";
-import { Outlet, useLoaderData, useLocation } from "@remix-run/react";
+import type { LoaderFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { Outlet, useLoaderData, useLocation, Link } from "@remix-run/react";
 import Page from "~/components/Pages/Page";
-import { publicHealthAlert } from "~/controllers/publicHealthAlert.control";
-import { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
+import { PublicHealthAlert } from "~/controllers/publicHealthAlert.control";
+import type { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
 import { requireUserSession } from "~/servers/userSession.server";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Link } from "@remix-run/react";
 import SVGDiscover from "~/assets/SVGs/SVGDiscover";
 import SVGFeed from "~/assets/SVGs/SVGFeed";
 import LeftSideBar from "app/components/SideBars/LeftSideBar";
@@ -14,7 +14,7 @@ import SVGCommunity from "~/assets/SVGs/SVGCommunity";
 import { useEffect, useState } from "react";
 import { APP_CLASSNAMES, APP_ROUTES } from "~/constants";
 import { URLsMatches, classNames } from "~/utilities/main";
-import { iWP_Community } from "~/models/community.model";
+import type { iWP_Community } from "~/models/community.model";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
 import MobileLeftSideBar from "~/components/SideBars/MobileLeftSideBar";
 
@@ -24,6 +24,7 @@ const LAYOUT_INFO = {
     "CHW Connector Communities. Get NACHW updates and emergency alerts. Join CHW Networks and Associations. Find CHWs in your state. Join learning communities. ",
   SEARCH: "Search Communities",
   REQUEST_BUTTON: "Request New Community",
+  REQUEST_BUTTON_LINK: APP_ROUTES.CONTACT,
 };
 
 const layoutMenu = [
@@ -59,7 +60,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   const context: iCommunitiesContext = {};
 
-  const alert = await publicHealthAlert.API.getMostRecentAlert();
+  const alert = await PublicHealthAlert.API.getMostRecentAlert();
   if (!(alert instanceof Error) && alert !== null) {
     context.alert = alert;
   }
@@ -138,7 +139,8 @@ export default function CommunitiesLayout() {
                   ))}
                 </div>
                 <div className="mt-10">
-                  <button
+                  <Link
+                    to={LAYOUT_INFO.REQUEST_BUTTON_LINK}
                     className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-white px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
                     {...(!sidebarOpen && {
                       "data-tooltip-id": toolTipId,
@@ -148,7 +150,7 @@ export default function CommunitiesLayout() {
                   >
                     <FontAwesomeIcon icon={faPlus} className="h-4" />
                     {sidebarOpen && <span>{LAYOUT_INFO.REQUEST_BUTTON}</span>}
-                  </button>
+                  </Link>
                 </div>
               </>
             )}
@@ -166,10 +168,13 @@ export default function CommunitiesLayout() {
             drawerChildren={
               <>
                 <div className="mt-2.5">
-                  <button className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-transparent px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white">
+                  <Link
+                    to={LAYOUT_INFO.REQUEST_BUTTON_LINK}
+                    className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-transparent px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
+                  >
                     <FontAwesomeIcon icon={faPlus} className="h-4" />
                     <span>{LAYOUT_INFO.REQUEST_BUTTON}</span>
-                  </button>
+                  </Link>
                 </div>
               </>
             }

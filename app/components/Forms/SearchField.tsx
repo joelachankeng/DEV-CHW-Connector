@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import SVGSearch from "~/assets/SVGs/SVGSearch";
 import { classNames } from "~/utilities/main";
 
@@ -12,12 +13,22 @@ export default function SearchField({
   screenReaderText: string;
   placeholder?: string;
   defaultValue?: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: string) => void;
 }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      onChange(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm]);
+
   return (
     <div
       className={classNames(
-        "w-full mt-4 p-2.5 rounded-full border-none outline-none bg-[#f4ebdf] text-[#686867] flex items-center gap-1",
+        "mt-4 flex w-full items-center gap-1 rounded-full border-none bg-[#f4ebdf] p-2.5 text-[#686867] outline-none",
         className ?? "",
       )}
     >
@@ -26,11 +37,12 @@ export default function SearchField({
         <SVGSearch />
       </div>
       <input
-        className="bg-transparent text-sm leading-[18px] text-[#032525] placeholder:text-[#686867] w-full focus:outline-none"
+        className="w-full bg-transparent pl-1 text-sm leading-[18px] text-[#032525] placeholder:text-[#686867] focus:outline-none"
         type="text"
         defaultValue={defaultValue}
         placeholder={placeholder}
-        onChange={onChange}
+        // onChange={onChange}
+        onChange={(e) => setSearchTerm(e.target.value)}
       />
     </div>
   );

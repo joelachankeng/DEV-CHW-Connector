@@ -9,7 +9,7 @@ import NotificationItem from "./NotificationItem";
 import _ from "lodash";
 import { DateTime } from "luxon";
 
-const DEFAULT_TIMEOUT = 5;
+const DEFAULT_TIMEOUT = 15;
 
 export type iNotification =
   | iNotificationItem_General
@@ -86,6 +86,8 @@ export default function NotificationManager() {
 
     return sortNotificationsByTime(allNotifications);
   }
+
+  if (!appContext.User) return null;
 
   return (
     <>

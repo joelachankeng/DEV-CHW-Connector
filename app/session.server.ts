@@ -42,13 +42,8 @@ export const APP_KEYS = {
     MAILGUN_FROM: process.env.MAILGUN_FROM,
     WP_REST_URL: process.env.WP_REST_URL,
   },
-};
-
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-export const APP_UPLOADS = {
-  FILE_SIZE_LIMIT: {
-    IMAGE: 2 * 1024 * 1024, // 2MB
-    ALL: MAX_FILE_SIZE,
-    VIDEO: MAX_FILE_SIZE,
+  UPLOAD: {
+    AVATAR: `${process.env.WP_REST_URL}/user/avatar`,
+    ALL_FILES: `${process.env.WP_REST_URL}/post/upload`,
   },
 };

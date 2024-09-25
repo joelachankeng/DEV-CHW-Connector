@@ -5,6 +5,7 @@ import type {
 } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
+  isRouteErrorResponse,
   Links,
   LiveReload,
   Meta,
@@ -12,6 +13,7 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
+  useRouteError,
 } from "@remix-run/react";
 import tailwindStylesheetUrl from "./styles/tailwind.css";
 import reactToolTipStylesheetUrl from "./styles/react-tooltip.css";
@@ -30,6 +32,10 @@ import {
 } from "./servers/userSession.server";
 import { User } from "./controllers/user.control";
 import { AppContext, defaultAppContext } from "./contexts/appContext";
+import MessagesManager from "./components/Managers/MessagesManager";
+import _ from "lodash";
+import { useEmojiMart } from "./utilities/hooks/useEmojiMart";
+import { ErrorPage } from "./components/Pages/ErrorPage";
 
 export const meta: MetaFunction = () => {
   return [
@@ -83,6 +89,34 @@ export const links: LinksFunction = () => {
   ];
 };
 
+const head = (
+  <head>
+    {process.env.NODE_ENV !== "development" && (
+      <>
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=G-SF1YS24HHS`}
+        ></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+
+              gtag('config', 'G-SF1YS24HHS');
+            `,
+          }}
+        ></script>
+      </>
+    )}
+    <meta charSet="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <Meta />
+    <Links />
+  </head>
+);
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const appContext: iAppContext = defaultAppContext;
   const userToken = await getUserSessionToken(request);
@@ -96,7 +130,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     if (!user) return await clearUserSession(request);
     if (user instanceof Error) return await clearUserSession(request);
 
+    const messagesIds = await User.API.getAllUnreadMessagesIds(
+      user.databaseId.toString(),
+    );
+    if (messagesIds && !(messagesIds instanceof Error)) {
+      appContext.MessagesManager.unreadIds = messagesIds;
+    }
+
     appContext.User = user;
+    appContext.UploadKeys = User.Utils.getUploadKeys(userToken);
   } else {
     if (appContext.User !== undefined) {
       /***
@@ -113,23 +155,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function App() {
   const { appContext } = useLoaderData() as { appContext: iAppContext };
+  const { EmojiMartMobile } = useEmojiMart();
 
   const [appContextState, setAppContextState] = useState(appContext);
 
   useEffect(() => {
-    if (!appContextState.User && appContextState.User !== appContext.User) {
-      setAppContextState(appContext);
+    if (!_.isEqual(appContext.User, appContextState.User)) {
+      console.log("User changed");
+
+      setAppContextState({
+        ...appContextState,
+        User: appContext.User,
+        MessagesManager: appContext.MessagesManager,
+      });
     }
-  }, [appContext.User]);
+  }, [appContext, appContextState]);
 
   return (
     <html lang="en" className="h-full">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <Meta />
-        <Links />
-      </head>
+      {head}
       <body className="h-full">
         <AppContext.Provider
           value={{
@@ -152,10 +196,83 @@ export default function App() {
           <ScrollRestoration />
           <Scripts />
           <LiveReload />
+          <MessagesManager />
           <NotificationManager />
           <UploadManager />
-          <div id="portal"></div>
+          <div id="portal">
+            <EmojiMartMobile />
+          </div>
         </AppContext.Provider>
+      </body>
+    </html>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  const getTitle = (): string => {
+    if (isRouteErrorResponse(error)) {
+      if (error.status == 404) {
+        return "";
+      }
+      return error.status.toString();
+    }
+    if (error instanceof Error) {
+      return "Application Error";
+    }
+
+    return "An unknown error occurred.";
+  };
+
+  const getDescription = (): string => {
+    if (isRouteErrorResponse(error)) {
+      if (error.status == 404) {
+        return "";
+      }
+      return error.statusText;
+    }
+    if (error instanceof Error) {
+      return error.stack || error.message;
+    }
+
+    return "An unknown error occurred.";
+  };
+
+  return (
+    <html lang="en" className="h-full">
+      {head}
+      <body className="h-full">
+        <ErrorPage
+          title={getTitle()}
+          description={
+            !(error instanceof Error) ? (
+              getDescription()
+            ) : (
+              <>
+                <div className="mt-8 flex flex-col gap-2">
+                  <p>
+                    An unexpected error occurred.
+                    <br />
+                    Please screenshot the{" "}
+                    <b className="uppercase">entire page</b> and send it to the
+                    support team.
+                  </p>
+                  <p>
+                    Current URL: <b>{window.location.href}</b>
+                  </p>
+                  <pre className="bg-[#bf5540] bg-opacity-10 p-8 text-left text-red-600">
+                    {error.stack || error.message}
+                  </pre>
+                </div>
+              </>
+            )
+          }
+          status={isRouteErrorResponse(error) ? error.status.toString() : "500"}
+        />
+        <ScrollRestoration />
+        <Scripts />
+        <LiveReload />
       </body>
     </html>
   );

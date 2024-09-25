@@ -22,8 +22,13 @@ import type { iHPLoaderData } from "~/routes";
 import { SigninTerms } from "./SigninTerms";
 import { classNames } from "~/utilities/main";
 import ModalNotification from "../Modals/ModalNotification";
-import type { iMemberClicksProfilesResult } from "~/models/memberClicks.model";
+import type {
+  iMemberClicksProfilesResult,
+  iPublic_MemberClicksProfileAttributes,
+} from "~/models/memberClicks.model";
 import type { iGenericError } from "~/models/appContext.model";
+import axios from "axios";
+import { UserPublic } from "~/controllers/user.control.public";
 
 const schemaObject = ACCOUNT_SCHEMAS.SIGNUP;
 const fields: iFormField[] = [
@@ -191,16 +196,21 @@ export const SignupForm = ({
   const fetcher = useFetcher();
 
   const [formFields, setFormFields] = useState<iFormField[]>(fields);
+  const [hasInvalidMemberType, setHasInvalidMemberType] =
+    useState<boolean>(false);
   const [chwWorker, setChwWorker] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState<string>("");
   const [showCHWModal, setShowCHWModal] = useState<boolean>(false);
   const [showMCModal, setShowMCModal] = useState<boolean>(false);
   const [showMCButton, setShowMCButton] = useState<boolean>(false);
-  const [profiles, setProfiles] = useState<
-    iMemberClicksProfilesResult["profiles"] | undefined
+  const [profile, setProfile] = useState<
+    iPublic_MemberClicksProfileAttributes | undefined
   >(undefined);
 
-  const isDisabled = handleDisabledSubmit(formFields) || chwWorker !== "yes";
+  const isDisabled =
+    handleDisabledSubmit(formFields) ||
+    chwWorker !== "yes" ||
+    hasInvalidMemberType;
 
   const handleonFieldsChange = (fields: iFormField[]) => {
     const chwWorkerField = fields.find((field) => field.name === "chw-worker");
@@ -234,53 +244,45 @@ export const SignupForm = ({
       if (isValidEmail.success) {
         const formData = new FormData();
         formData.append("[Email | Primary]", email);
+        axios
+          .post("api/mc/user/search", formData)
+          .then((res) => {
+            setShowCHWModal(false);
+            setShowMCModal(false);
+            setShowMCButton(false);
+            setProfile(undefined);
+            setHasInvalidMemberType(false);
 
-        fetcher.submit(formData, {
-          method: "post",
-          action: "api/mc/user/search",
-        });
+            const results = res.data as iMemberClicksProfilesResult;
+            const findProfile = results.profiles.find(
+              (p) => p["[Email | Primary]"] === email,
+            );
+
+            if (findProfile && findProfile["[Email | Primary]"] === email) {
+              if (UserPublic.Utils.isAllyMember(findProfile)) {
+                setShowCHWModal(true);
+                setHasInvalidMemberType(true);
+              } else {
+                setShowMCModal(true);
+                setShowMCButton(true);
+              }
+
+              setProfile(findProfile);
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+          });
       }
     }, 250);
     return () => clearTimeout(delayDebounceFn);
   }, [email]);
 
-  useEffect(() => {
-    if (fetcher.state !== "idle") {
-      setShowMCModal(false);
-      setShowMCButton(false);
-      setProfiles(undefined);
-      return;
-    }
-    if (fetcher.data === undefined) {
-      setShowMCModal(false);
-      setShowMCButton(false);
-      setProfiles(undefined);
-      return;
-    }
-    const results = fetcher.data as iMemberClicksProfilesResult;
-
-    if ("error" in results) {
-      setShowMCModal(false);
-      setShowMCButton(false);
-      setProfiles(undefined);
-      return;
-    }
-
-    if (
-      results.profiles.length > 0 &&
-      results.profiles.some((profile) => profile["[Email | Primary]"] === email)
-    ) {
-      setShowMCModal(true);
-      setShowMCButton(true);
-      setProfiles(results.profiles);
-    }
-  }, [fetcher.data, fetcher.state]);
-
   return (
     <>
       <ModalNotification
         show={showMCModal}
-        title={`Welcome back, ${profiles?.[0]["[Name | First]"]}!`}
+        title={`Welcome back, ${profile?.["[Name | First]"]}!`}
         content={
           <p className="text-base">
             You are already a member of the NACHW community. Please sign in via
@@ -296,11 +298,21 @@ export const SignupForm = ({
       <ModalNotification
         show={showCHWModal}
         spinner={false}
-        title={"We are sorry we cannot create your account!"}
+        title={
+          <>
+            {UserPublic.Utils.isAllyMember(profile || {}) && (
+              <span>
+                You are an Ally Member!
+                <br />
+              </span>
+            )}
+            <span>We are sorry we cannot create your account!</span>
+          </>
+        }
         content={
           <p className="text-base">
             The CHW Connector Platform is restricted to Users who identify as
-            CHW’s, Please email{" "}
+            CHW’s. Please email{" "}
             <a
               className="font-semibold text-chw-light-purple transition duration-300 ease-in-out hover:underline"
               href="https://form.jotform.com/232434102616142"

@@ -1,11 +1,12 @@
-import { json, LoaderFunction, redirect } from "@remix-run/node";
+import type { LoaderFunction } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 import { Logo } from "~/assets/Logo";
 import { Alert } from "~/components/Alert";
 import Page from "~/components/Pages/Page";
 import { APP_CLASSNAMES } from "~/constants";
 import { User } from "~/controllers/user.control";
-import { iGenericError, iGenericSuccess } from "~/models/appContext.model";
+import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
 import { classNames, getRequestParams } from "~/utilities/main";
 
 export const loader: LoaderFunction = async ({ request, params }) => {
@@ -37,7 +38,7 @@ export default function ConfirmEmail() {
 
   return (
     <Page
-      className="flex flex-col justify-between min-h-full gap-[3.125rem] bg-white"
+      className="flex min-h-full flex-col justify-between gap-[3.125rem] bg-white"
       header={{
         display: false,
       }}
@@ -49,16 +50,16 @@ export default function ConfirmEmail() {
       }}
     >
       <div className={APP_CLASSNAMES.CONTAINER_FULLWIDTH}>
-        <div className="flex flex-col mt-[3.125rem] max-w-[67rem] mx-auto items-center">
+        <div className="mx-auto mt-[3.125rem] flex max-w-[67rem] flex-col items-center">
           <h1 className="sr-only">
             {"success" in loaderData
               ? "New Email Confirmed"
               : "Error Confirming Email"}
           </h1>
-          <div className="max-w-[27.188rem] w-full h-32 mb-[3.125rem] max-md:h-24">
+          <div className="mb-[3.125rem] h-32 w-full max-w-[27.188rem] max-md:h-24">
             <Logo />
           </div>
-          <div className="flex gap-4 max-w-[67.5rem] w-full flex-col justify-center items-center max-md:gap-10">
+          <div className="flex w-full max-w-[67.5rem] flex-col items-center justify-center gap-4 max-md:gap-10">
             {"success" in loaderData ? (
               <Alert
                 title="New Email Activated"
@@ -85,8 +86,8 @@ export default function ConfirmEmail() {
               <Link
                 to="/"
                 className={classNames(
-                  "cursor-pointer text-white bg-chw-light-purple hover:bg-chw-dark-purple",
-                  "text-center w-full font-bold text-base  px-[25px] py-2.5 rounded-[40px] border-[none] transition duration-300 ease-in-out",
+                  "cursor-pointer bg-chw-light-purple text-white hover:bg-chw-dark-purple",
+                  "w-full rounded-[40px] border-[none] px-[25px]  py-2.5 text-center text-base font-bold transition duration-300 ease-in-out",
                 )}
               >
                 Login

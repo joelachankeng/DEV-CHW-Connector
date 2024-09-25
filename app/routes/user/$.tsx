@@ -9,10 +9,6 @@ import { User } from "~/controllers/user.control";
 import { useLoaderData } from "@remix-run/react";
 import type { iWP_User } from "~/models/user.model";
 import type { iProfileFormFields } from "~/routes/settings/edit-profile";
-import {
-  convertUserToProfileFormFields,
-  transformProfileFormFieldsToSave,
-} from "~/routes/settings/edit-profile";
 import { ErrorPageGeneric } from "~/components/Pages/ErrorPage";
 
 type loaderData = {
@@ -42,31 +38,7 @@ export async function loader({
     if (!isNaN(userId)) {
       const user = await User.API.getUser(userId.toString(), "DATABASE_ID");
       if (user && !(user instanceof Error)) {
-        profileFields = {
-          ...transformProfileFormFieldsToSave(
-            convertUserToProfileFormFields(user),
-          ),
-          databaseId: user.databaseId,
-        };
-
-        // remove private fields
-        for (const key in profileFields) {
-          const keyName = key as keyof iProfileFormFields;
-          if (typeof profileFields[keyName] === "object") {
-            if (
-              "public" in profileFields[keyName] &&
-              "value" in profileFields[keyName]
-            ) {
-              if (profileFields[keyName].public === false) {
-                if (Array.isArray(profileFields[keyName].value)) {
-                  profileFields[keyName].value = [];
-                } else {
-                  profileFields[keyName].value = "";
-                }
-              }
-            }
-          }
-        }
+        profileFields = User.Utils.removeSensitiveUserData(user);
       }
     }
   }

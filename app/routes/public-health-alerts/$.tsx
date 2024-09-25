@@ -1,7 +1,7 @@
 import { json } from "@remix-run/node";
 import type { LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { publicHealthAlert } from "~/controllers/publicHealthAlert.control";
+import { PublicHealthAlert as PublicHealthAlertController } from "~/controllers/publicHealthAlert.control";
 import type { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
 import PublicHealthAlert from "~/components/PublicHealthAlertsBanner/PublicHealthAlerts";
 import { ErrorComponent } from "~/components/Pages/ErrorPage";
@@ -19,7 +19,7 @@ export const loader: LoaderFunction = async ({
 
   const alertId = parseInt(paramId ?? "-1");
 
-  const alert = await publicHealthAlert.API.getAlert(alertId);
+  const alert = await PublicHealthAlertController.API.getAlert(alertId);
 
   return json({
     alert:

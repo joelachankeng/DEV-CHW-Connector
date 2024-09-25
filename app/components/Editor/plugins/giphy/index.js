@@ -24,6 +24,10 @@ export default class GIPHY {
     this.element = null;
     this.config = config;
     this.readOnly = readOnly;
+
+    if (this.readOnly) {
+      this.isSearch = false;
+    }
   }
 
   /**
@@ -81,7 +85,7 @@ export default class GIPHY {
       let lastScrollTop = 0;
       let fetching = false;
 
-      collection.onscroll = (e) => {
+      collection.onscroll = () => {
         if (fetching) return;
         if (collection.scrollTop < lastScrollTop) {
           // upscroll
@@ -110,19 +114,27 @@ export default class GIPHY {
       };
 
       const trendingImages = this.fetchTrendingResults();
-      trendingImages.then((images) => {
-        this.replaceImagesInCollection(images, collection);
-      });
+      trendingImages
+        .then((images) => {
+          this.replaceImagesInCollection(images, collection);
+        })
+        .catch((e) => {
+          console.error(e);
+        });
 
-      searchInput.addEventListener("input", async (e) => {
-        const search = e.target.value;
+      searchInput.addEventListener("input", (e) => {
+        (async () => {
+          const search = e.target.value;
 
-        if (search.length > 0) {
-          const images = await this.fetchSearchResults(search);
-          const row =
-            container.parentElement.querySelector(".giphy-collection");
-          this.replaceImagesInCollection(images, row);
-        }
+          if (search.length > 0) {
+            const images = await this.fetchSearchResults(search);
+            const row =
+              container.parentElement.querySelector(".giphy-collection");
+            this.replaceImagesInCollection(images, row);
+          }
+        })().catch((e) => {
+          console.error(e);
+        });
       });
 
       container.appendChild(searchInput);

@@ -48,3 +48,13 @@ export type iWP_User_RestPassword = {
   code: string;
   expiration: string;
 };
+
+export type iWP_Users = {
+  nodes: iWP_User[];
+};
+
+export type iUser_UploadKeys = {
+  authorization: string;
+  uploadUrl: string;
+  avatarUrl: string;
+};

@@ -12,16 +12,16 @@ export default function NotificationItemGeneral({
   return (
     <>
       <div
-        className="flex items-center p-4 text-gray-500 bg-white rounded-lg shadow-md dark:text-gray-400 dark:bg-gray-800 w-auto"
+        className="flex w-auto items-center rounded-lg bg-white p-4 text-gray-500 shadow-md dark:bg-gray-800 dark:text-gray-400 max-md:border max-md:border-gray-200 max-md:shadow-2xl"
         role="alert"
       >
-        <div className="inline-flex items-center justify-center w-10 h-10 min-w-[2.5rem]">
+        <div className="inline-flex h-10 w-10 min-w-[2.5rem] items-center justify-center">
           {icon}
         </div>
-        <div className="mx-3 text-sm text-black font-normal">{children}</div>
+        <div className="mx-3 text-sm font-normal text-black">{children}</div>
         <button
           type="button"
-          className="ms-auto -mx-1.5 -my-1.5 min-w-[32px] bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex items-center justify-center h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700"
+          className="-mx-1.5 -my-1.5 ms-auto inline-flex h-8 w-8 min-w-[32px] items-center justify-center rounded-lg bg-white p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-white"
           aria-label="Close"
           onClick={onClose}
         >

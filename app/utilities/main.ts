@@ -1,6 +1,8 @@
 import { DateTime } from "luxon";
 import { APP_DATE_FORMAT, APP_TIMEZONE } from "~/constants";
 import crypto from "crypto";
+import GraphemeSplitter from "grapheme-splitter";
+import _ from "lodash";
 
 export interface iClassNamesOverride {
   className: string;
@@ -313,4 +315,90 @@ export const escapeSpecialChars = (value: string): string => {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+};
+
+export const stripHtml = (html: string): string => {
+  return html.replace(/<[^>]*>?/gm, "").replace(/<\/[^>]+(>|$)/g, "");
+};
+
+export const isToday = (date: DateTime) => {
+  if (!date) return false;
+  if (!date.isValid) return false;
+
+  const now = DateTime.now();
+  if (
+    now.year === date.year &&
+    now.month === date.month &&
+    now.day === date.day
+  )
+    return true;
+
+  return false;
+};
+
+export const isYesterday = (date: DateTime) => {
+  if (!date) return false;
+  if (!date.isValid) return false;
+
+  const now = DateTime.now().setZone(APP_TIMEZONE);
+  if (
+    now.year === date.year &&
+    now.month === date.month &&
+    now.day - date.day === 1
+  )
+    return true;
+
+  return false;
+};
+
+export const getStringWithEmojisLength = (text: string): number => {
+  // A same emoji can have different lengths in different platforms,
+  // so we need to split the string into graphemes to get the correct length
+  const splitter = new GraphemeSplitter();
+  return splitter.splitGraphemes(text).length;
+};
+
+export const hasSingleEmoji = (text: string): boolean => {
+  const textLength = getStringWithEmojisLength(text);
+  if (textLength === 1) {
+    if (hasEmoji(text)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const isAllEmojis = (text: string): boolean => {
+  const splitter = new GraphemeSplitter();
+  const chars = splitter.splitGraphemes(text);
+  if (chars.length === 0) return false;
+  for (const char of chars) {
+    if (parseInt(char)) {
+      return false;
+    }
+    if (!hasEmoji(char)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+export const hasEmoji = (text: string): boolean => {
+  if (!text) return false;
+  const regexes = [
+    /\p{Extended_Pictographic}/gu,
+    /\p{Emoji}/gu,
+    /\p{Emoji_Presentation}/gu,
+    /\p{Emoji_Modifier}/gu,
+    /\p{Emoji_Modifier_Base}/gu,
+    /\p{Emoji_Component}/gu,
+  ];
+
+  for (const regex of regexes) {
+    if (regex.test(text)) {
+      return true;
+    }
+  }
+  return false;
 };

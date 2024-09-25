@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { Outlet, useLoaderData, useLocation, Link } from "@remix-run/react";
 import { useEffect, useState } from "react";
 import Page from "~/components/Pages/Page";
-import { publicHealthAlert } from "~/controllers/publicHealthAlert.control";
+import { PublicHealthAlert } from "~/controllers/publicHealthAlert.control";
 import type { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
 import { requireUserSession } from "~/servers/userSession.server";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
@@ -24,6 +24,7 @@ const LAYOUT_INFO = {
     "CHW Networks and Associations are the official group pages of local, state, and regional organizations led by or co-led by CHWs, Promotoras and Community Health Representatives and Peers in our profession. Follow them. Learn about their events. Get updates and Join the discussion!",
   SEARCH: "Search CHW Networks",
   REQUEST_BUTTON: "Request New CHW Network",
+  REQUEST_BUTTON_LINK: "https://form.jotform.com/232434102616142",
 };
 
 const layoutMenu = [
@@ -59,7 +60,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   const context: iCHWNetworkContext = {};
 
-  const alert = await publicHealthAlert.API.getMostRecentAlert();
+  const alert = await PublicHealthAlert.API.getMostRecentAlert();
   if (!(alert instanceof Error) && alert !== null) {
     context.alert = alert;
   }
@@ -137,7 +138,8 @@ export default function CHWNetworksLayout() {
                   ))}
                 </div>
                 <div className="mt-10">
-                  <button
+                  <Link
+                    to={LAYOUT_INFO.REQUEST_BUTTON_LINK}
                     className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-white px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
                     {...(!sidebarOpen && {
                       "data-tooltip-id": toolTipId,
@@ -147,7 +149,7 @@ export default function CHWNetworksLayout() {
                   >
                     <FontAwesomeIcon icon={faPlus} className="h-4" />
                     {sidebarOpen && <span>{LAYOUT_INFO.REQUEST_BUTTON}</span>}
-                  </button>
+                  </Link>
                 </div>
               </>
             )}
@@ -165,10 +167,13 @@ export default function CHWNetworksLayout() {
             drawerChildren={
               <>
                 <div className="mt-2.5">
-                  <button className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-transparent px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white">
+                  <Link
+                    to={LAYOUT_INFO.REQUEST_BUTTON_LINK}
+                    className="m-auto flex w-full items-center justify-center gap-1 rounded-[40px] border-2 border-solid border-chw-light-purple bg-transparent px-4 py-2.5 text-base font-bold text-chw-light-purple transition duration-300 ease-in-out hover:bg-chw-light-purple hover:text-white"
+                  >
                     <FontAwesomeIcon icon={faPlus} className="h-4" />
                     <span>{LAYOUT_INFO.REQUEST_BUTTON}</span>
-                  </button>
+                  </Link>
                 </div>
               </>
             }

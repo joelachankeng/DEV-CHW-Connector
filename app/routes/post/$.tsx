@@ -5,7 +5,7 @@ import { AppContext } from "~/contexts/appContext";
 import { CHWNetwork } from "~/controllers/CHWNetwork.control";
 import type { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
 import { Feed } from "~/controllers/feed.control";
-import { publicHealthAlert } from "~/controllers/publicHealthAlert.control";
+import { PublicHealthAlert } from "~/controllers/publicHealthAlert.control";
 import type { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
 import type { iWP_Community } from "~/models/community.model";
 import { User } from "~/controllers/user.control";
@@ -80,7 +80,7 @@ export const loader: LoaderFunction = async ({
   }
 
   let alert: iWP_PublicHealthAlert | undefined = undefined;
-  const getAlert = await publicHealthAlert.API.getMostRecentAlert();
+  const getAlert = await PublicHealthAlert.API.getMostRecentAlert();
   if (!(getAlert instanceof Error) && getAlert !== null) {
     alert = getAlert;
   }

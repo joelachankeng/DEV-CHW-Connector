@@ -1,5 +1,13 @@
 import type { MutableRefObject } from "react";
-import { useContext, useEffect, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Tooltip } from "react-tooltip";
 import SVGAddEmoji from "~/assets/SVGs/SVGAddEmoji";
 import SVGAddImage from "~/assets/SVGs/SVGAddImage";
@@ -17,15 +25,33 @@ import { classNames } from "~/utilities/main";
 import SVGPostComment from "~/assets/SVGs/SVGPostComment";
 import { EditorBlock } from "~/components/Editor/EditorBlock";
 import LoadingSpinner from "~/components/Loading/LoadingSpinner";
-import { Link, unstable_usePrompt, useNavigate } from "@remix-run/react";
+import { Link, unstable_usePrompt } from "@remix-run/react";
 import { Collapse } from "@kunukn/react-collapse";
-import type { iEmojiPickerIcon } from "~/utilities/hooks/useEmojiMart";
-import { useEmojiMart } from "~/utilities/hooks/useEmojiMart";
+import type {
+  EMOJI_SELECTED_EVENT,
+  iEmojiPickerIcon,
+} from "~/utilities/hooks/useEmojiMart";
+import {
+  dispatchShowMobilePicker,
+  EMOJIMART_EVENTS,
+  useEmojiMart,
+} from "~/utilities/hooks/useEmojiMart";
 import { AppContext } from "~/contexts/appContext";
 import { APP_ROUTES } from "~/constants";
+import { VideoCameraIcon } from "@heroicons/react/24/outline";
+import type { iEditor_Tools_Config } from "~/components/Editor/editor.client";
 
 const BUTTON_CLASSNAMES =
   "text-[#686867] h-6 w-6 hover:text-chw-light-purple transition duration-300 ease-in-out";
+
+export type iPostEditorPropSetter =
+  | {
+      setSubmitting: (status: boolean) => void;
+      isSubmitting: () => boolean;
+      setUploadStatus: (status: boolean) => void;
+      isUploading: () => boolean;
+    }
+  | undefined;
 
 type iPostEditorProps = {
   editorRef: MutableRefObject<EditorJS | undefined>;
@@ -36,14 +62,17 @@ type iPostEditorProps = {
   preventWindowClosingMessage?: string;
   isSubmitting?: boolean;
   submitTooltipText?: string;
+  uploadEvents?: iEditor_Tools_Config["upload"];
   onSubmit?: (editor: EditorJS, blockData: OutputData["blocks"]) => void;
   onChange?: (data: OutputData["blocks"]) => void;
+  propSetter?: MutableRefObject<iPostEditorPropSetter>;
 };
 
 export const EDITOR_ERROR_MESSAGE =
   "An unexpected error occurred with the post editor. Please refresh the page and try again.";
 
-export default function PostEditor({
+export default memo(PostEditorComponent);
+function PostEditorComponent({
   containerClassNames,
   editorRef,
   blockData,
@@ -52,20 +81,91 @@ export default function PostEditor({
   preventWindowClosingMessage,
   isSubmitting,
   submitTooltipText,
+  uploadEvents,
   onSubmit,
   onChange,
+  propSetter,
 }: iPostEditorProps) {
   const { appContext } = useContext(AppContext);
-  const navigate = useNavigate();
-  const { EmojiMart, showEmojiMart, setShowEmojiMart } = useEmojiMart();
-
-  // const editorRef = useRef<EditorJS>();
-  // if (postEditorRef) postEditorRef = editorRef;
+  const { EmojiMart } = useEmojiMart();
 
   const [isMounted, setIsMounted] = useState(false);
-  const [editorBlockData, setEditorBlockData] =
-    useState<OutputData["blocks"]>(blockData);
   const [hasData, setHasData] = useState(false);
+  const [_isSubmitting, _setIsSubmitting] = useState(isSubmitting || false);
+  const [_isUploading, _setIsUploading] = useState(false);
+  const [showEmojiMart, setShowEmojiMart] = useState<boolean>(false);
+
+  const propReturners = useRef({
+    isSubmitting: _isSubmitting,
+    isUploading: _isUploading,
+  });
+  const editorBlockData = useRef<OutputData["blocks"]>(blockData);
+  const postEditorFiles = useRef<
+    { toolName: string; file: File; isCompleted: boolean }[]
+  >([]);
+
+  useEffect(() => {
+    if (!propSetter) return;
+
+    propSetter.current = {
+      setSubmitting: (status: boolean) => {
+        _setIsSubmitting(status);
+      },
+      isSubmitting: () => propReturners.current.isSubmitting,
+      setUploadStatus: (status: boolean) => {
+        _setIsUploading(status);
+      },
+      isUploading: () => propReturners.current.isUploading,
+    };
+
+    return () => {
+      propSetter.current = undefined;
+    };
+  }, [_isSubmitting, _isUploading, propSetter]);
+
+  useEffect(() => {
+    propReturners.current.isSubmitting = _isSubmitting;
+    propReturners.current.isUploading = _isUploading;
+  }, [_isSubmitting, _isUploading]);
+
+  unstable_usePrompt({
+    message:
+      preventWindowClosingMessage ||
+      "You have unsaved changes in the editor. Are you sure you want to leave?",
+    when: ({ currentLocation, nextLocation }) =>
+      editorBlockData.current.length !== 0 &&
+      currentLocation.pathname !== nextLocation.pathname,
+  });
+
+  const editorPreventWindowClosing = useCallback(
+    (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return (
+        preventWindowClosingMessage ||
+        "You have unsaved changes in the editor. Are you sure you want to leave?"
+      );
+    },
+    [preventWindowClosingMessage],
+  );
+
+  const handleDataOnChange = useCallback(
+    (data: OutputData) => {
+      if (onChange) {
+        onChange(data.blocks);
+      }
+
+      if (data.blocks.length === 0) {
+        setHasData(false);
+        editorBlockData.current = [];
+        window.removeEventListener("beforeunload", editorPreventWindowClosing);
+      } else {
+        setHasData(true);
+        editorBlockData.current = data.blocks;
+        window.addEventListener("beforeunload", editorPreventWindowClosing);
+      }
+    },
+    [editorPreventWindowClosing, onChange],
+  );
 
   useEffect(() => {
     setIsMounted(true);
@@ -73,76 +173,104 @@ export default function PostEditor({
       setIsMounted(false);
       window.removeEventListener("beforeunload", editorPreventWindowClosing);
     };
-  }, []);
+  }, [editorPreventWindowClosing]);
 
   useEffect(() => {
-    if (onChange) {
-      onChange(editorBlockData);
-    }
-  }, [editorBlockData, onChange]);
+    const handleEmojiSelectListener = (event: EMOJI_SELECTED_EVENT) => {
+      const { emoji, id } = event.detail;
+      if (id !== editorHolderId) return;
+      handleEmojiSelect(editorRef.current, emoji);
+    };
 
-  const handleDataOnChange = (data: OutputData) => {
-    console.log("handleDataOnChange", data);
-
-    if (data.blocks.length === 0) {
-      setHasData(false);
-      setEditorBlockData([]);
-      window.removeEventListener("beforeunload", editorPreventWindowClosing);
-    } else {
-      setHasData(true);
-      setEditorBlockData(data.blocks);
-      window.addEventListener("beforeunload", editorPreventWindowClosing);
-    }
-  };
-
-  const handleEmojiSelect = (emoji: iEmojiPickerIcon) => {
-    if (!editorRef.current) return console.error("Editor not initialized");
-
-    let currentIndex = editorRef.current.blocks.getCurrentBlockIndex();
-    let currentBlock = editorRef.current.blocks.getBlockByIndex(currentIndex);
-
-    if (!currentBlock) return console.error("Current block not found");
-
-    const currentBlockDOM = currentBlock.holder;
-    let contentEditable = currentBlockDOM.querySelector(
-      "[contenteditable = true]",
+    window.addEventListener(
+      EMOJIMART_EVENTS.EMOJI_SELECTED,
+      handleEmojiSelectListener as EventListener,
     );
 
-    if (!contentEditable) {
-      currentIndex += 1;
-      currentBlock = editorRef.current.blocks.insert(
-        "paragraph",
-        {},
-        {},
-        currentIndex,
-        true,
+    return () => {
+      window.removeEventListener(
+        EMOJIMART_EVENTS.EMOJI_SELECTED,
+        handleEmojiSelectListener as EventListener,
       );
-      contentEditable = currentBlock.holder.querySelector(
-        "[contenteditable = true]",
-      );
-    }
+    };
+  }, [editorHolderId, editorRef]);
 
-    if (contentEditable) {
-      //   console.log("currentIndex", currentIndex);
-      const focusNode = document.getSelection()?.focusNode;
-      //   console.log("focusNode", focusNode);
-      if (!focusNode) {
-        // console.log("focusNode not found");
-        focusOnBlock(editorRef.current, currentIndex);
-      } else if (
-        !contentEditable.contains(focusNode) &&
-        !contentEditable.isSameNode(focusNode)
-      ) {
-        // console.log("focusNode not in contentEditable");
-        focusOnBlock(editorRef.current, currentIndex);
-      }
-      insertTextAtCaret(emoji.native);
-    }
-  };
+  const createEditor = useMemo(
+    () => (
+      <EditorBlock
+        onEditor={(editor: EditorJS | undefined) => {
+          editorRef.current = editor as EditorJS;
+        }}
+        placeholder={editorPlaceholder}
+        data={{
+          blocks: editorBlockData.current,
+        }}
+        holder={editorHolderId}
+        className={classNames(
+          "relative z-10 w-full transition-all duration-300 ease-in-out",
+        )}
+        editorToolsConfig={{
+          authorization: appContext.UploadKeys?.authorization,
+          upload: {
+            filterUrl: (toolName) => {
+              if (uploadEvents?.filterUrl) {
+                const newUrl = uploadEvents.filterUrl(toolName);
+                if (newUrl) return newUrl;
+              }
+              return appContext.UploadKeys?.uploadUrl;
+            },
+            onBeforeUpload: (toolName, file) => {
+              postEditorFiles.current.push({
+                toolName,
+                file,
+                isCompleted: false,
+              });
+              _setIsUploading(true);
+              propReturners.current.isUploading = true;
+              if (uploadEvents?.onBeforeUpload)
+                uploadEvents.onBeforeUpload(toolName, file);
+            },
+            onUploadComplete(toolName, file, result) {
+              postEditorFiles.current = postEditorFiles.current.map((item) => {
+                if (item.file === file && toolName == item.toolName) {
+                  item.isCompleted = true;
+                }
+                return item;
+              });
 
-  const handleAttachImageVideo = (e: React.MouseEvent<HTMLButtonElement>) => {
+              if (postEditorFiles.current.every((item) => item.isCompleted)) {
+                _setIsUploading(false);
+                propReturners.current.isUploading = false;
+              }
+
+              if (uploadEvents?.onUploadComplete)
+                uploadEvents.onUploadComplete(toolName, file, result);
+            },
+          },
+        }}
+        onChange={handleDataOnChange}
+      />
+    ),
+
+    [
+      appContext.UploadKeys,
+      editorHolderId,
+      editorPlaceholder,
+      editorRef,
+      uploadEvents,
+      handleDataOnChange,
+    ],
+  );
+
+  const handleAttachImage = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const imageBlock = addBlockToEndOfEditor(editorRef, "image", {}, {}, true);
+    const imageBlock = addBlockToEndOfEditor(
+      editorRef.current,
+      "image",
+      {},
+      {},
+      true,
+    );
     if (!imageBlock) return console.error("Image block not found");
 
     const button = imageBlock.holder.querySelector(
@@ -151,16 +279,39 @@ export default function PostEditor({
     button?.click();
   };
 
+  const handleAttachVideo = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const videoBlock = addBlockToEndOfEditor(
+      editorRef.current,
+      "video",
+      {},
+      {},
+      true,
+    );
+    if (!videoBlock) return console.error("Video block not found");
+
+    const button = videoBlock.holder.querySelector(
+      ".cdx-button",
+    ) as HTMLButtonElement | null;
+    button?.click();
+  };
+
   const handleAddGIF = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const imageBlock = addBlockToEndOfEditor(editorRef, "giphy", {}, {}, true);
+    const imageBlock = addBlockToEndOfEditor(
+      editorRef.current,
+      "giphy",
+      {},
+      {},
+      true,
+    );
     if (!imageBlock) return console.error("Giphy block not found");
   };
 
   const handleAttachDocument = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const imageBlock = addBlockToEndOfEditor(
-      editorRef,
+      editorRef.current,
       "attaches",
       {},
       {},
@@ -179,25 +330,8 @@ export default function PostEditor({
     if (!onSubmit) return console.error("onSubmit function not provided");
     if (!editorRef.current) return console.error("Editor not initialized");
 
-    onSubmit(editorRef.current, blockData);
+    onSubmit(editorRef.current, editorBlockData.current);
   };
-
-  function editorPreventWindowClosing(e: BeforeUnloadEvent) {
-    e.preventDefault();
-    return (
-      preventWindowClosingMessage ||
-      "You have unsaved changes in the editor. Are you sure you want to leave?"
-    );
-  }
-
-  unstable_usePrompt({
-    message:
-      preventWindowClosingMessage ||
-      "You have unsaved changes in the editor. Are you sure you want to leave?",
-    when: ({ currentLocation, nextLocation }) =>
-      editorBlockData.length !== 0 &&
-      currentLocation.pathname !== nextLocation.pathname,
-  });
 
   return (
     <>
@@ -211,7 +345,11 @@ export default function PostEditor({
 
           const target = e.target as HTMLElement | null;
           if (!target) return;
-          if (target.closest("button")) return;
+          if (
+            target.closest("button") ||
+            target.closest(".emoji-mart-container")
+          )
+            return;
 
           if (hasData) return;
 
@@ -224,24 +362,7 @@ export default function PostEditor({
             <>
               {isMounted && (
                 <ClientOnly fallback={<></>}>
-                  {() => (
-                    <>
-                      <EditorBlock
-                        onEditor={(editor: EditorJS | undefined) => {
-                          editorRef.current = editor as EditorJS;
-                        }}
-                        placeholder={editorPlaceholder}
-                        data={{
-                          blocks: editorBlockData,
-                        }}
-                        holder={editorHolderId}
-                        className={classNames(
-                          "relative z-10 w-full transition-all duration-300 ease-in-out",
-                        )}
-                        onChange={handleDataOnChange}
-                      />
-                    </>
-                  )}
+                  {() => <>{createEditor}</>}
                 </ClientOnly>
               )}
             </>
@@ -249,7 +370,12 @@ export default function PostEditor({
             <div className="">{editorPlaceholder}</div>
           )}
         </div>
-        <div className={classNames(hasData ? "mt-11 " : "my-2")}>
+        <div
+          className={classNames(
+            hasData ? "mt-32 max-md:mt-11" : "my-2",
+            "transition-all duration-300 ease-in-out",
+          )}
+        >
           <Collapse
             isOpen={showEmojiMart}
             transition={"height 300ms cubic-bezier(0.4, 0, 0.2, 1)"}
@@ -265,7 +391,7 @@ export default function PostEditor({
                 skin: 1,
                 dynamicWidth: true,
                 onEmojiSelect: (emoji: iEmojiPickerIcon) =>
-                  handleEmojiSelect(emoji),
+                  handleEmojiSelect(editorRef.current, emoji),
                 onClickOutside: () => setShowEmojiMart(false),
               }}
             />
@@ -284,7 +410,13 @@ export default function PostEditor({
                 <div className="relative flex items-center justify-center">
                   <button
                     type="button"
-                    onClick={() => setShowEmojiMart(!showEmojiMart)}
+                    onClick={() => {
+                      if (window.innerWidth < 768) {
+                        dispatchShowMobilePicker(editorHolderId);
+                      } else {
+                        setShowEmojiMart(!showEmojiMart);
+                      }
+                    }}
                     data-tooltip-id={`tooltip-editor-${editorHolderId}`}
                     data-tooltip-content={`Insert Emoji`}
                     data-tooltip-place="top"
@@ -295,13 +427,23 @@ export default function PostEditor({
                 </div>
                 <button
                   type="button"
-                  onClick={handleAttachImageVideo}
+                  onClick={handleAttachImage}
                   data-tooltip-id={`tooltip-editor-${editorHolderId}`}
-                  data-tooltip-content={`Attach photo or video`}
+                  data-tooltip-content={`Attach photo`}
                   data-tooltip-place="top"
                   className={BUTTON_CLASSNAMES}
                 >
                   <SVGAddImage />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAttachVideo}
+                  data-tooltip-id={`tooltip-editor-${editorHolderId}`}
+                  data-tooltip-content={`Attach video`}
+                  data-tooltip-place="top"
+                  className={BUTTON_CLASSNAMES}
+                >
+                  <VideoCameraIcon className="h-full w-full" />
                 </button>
                 <button
                   type="button"
@@ -326,10 +468,13 @@ export default function PostEditor({
               </div>
               {onSubmit && (
                 <div className="">
-                  {blockData.length > 0 && (
+                  {editorBlockData.current.length > 0 && (
                     <>
-                      {isSubmitting ? (
-                        <LoadingSpinner className="" />
+                      {_isSubmitting || _isUploading ? (
+                        <div className="flex items-center gap-4 font-bold">
+                          {_isUploading && <span>Uploading</span>}
+                          <LoadingSpinner className="" />
+                        </div>
                       ) : (
                         <button
                           type="submit"
@@ -383,7 +528,7 @@ function insertTextAtCaret(text: string) {
 }
 
 function addBlockToEndOfEditor(
-  editorRef: React.MutableRefObject<EditorJS | undefined>,
+  editorRef: EditorJS | undefined,
   type?: string,
   data?: BlockToolData,
   config?: ToolConfig,
@@ -391,20 +536,20 @@ function addBlockToEndOfEditor(
   replace?: boolean,
   id?: string,
 ): BlockAPI | undefined {
-  if (!editorRef.current) {
+  if (!editorRef) {
     console.error("Editor not initialized");
     return;
   }
 
-  const lastIndex = editorRef.current.blocks.getBlocksCount() - 1;
+  const lastIndex = editorRef.blocks.getBlocksCount() - 1;
 
-  const currentBlock = editorRef.current.blocks.getBlockByIndex(lastIndex);
+  const currentBlock = editorRef.blocks.getBlockByIndex(lastIndex);
   if (!currentBlock) {
     console.error("Current block not found");
     return;
   }
 
-  return editorRef.current.blocks.insert(
+  return editorRef.blocks.insert(
     type,
     data,
     config,
@@ -414,3 +559,51 @@ function addBlockToEndOfEditor(
     id,
   );
 }
+
+const handleEmojiSelect = (
+  editorRef: EditorJS | undefined,
+  emoji: iEmojiPickerIcon,
+) => {
+  if (!editorRef) return console.error("Editor not initialized");
+
+  let currentIndex = editorRef.blocks.getCurrentBlockIndex();
+  let currentBlock = editorRef.blocks.getBlockByIndex(currentIndex);
+
+  if (!currentBlock) return console.error("Current block not found");
+
+  const currentBlockDOM = currentBlock.holder;
+  let contentEditable = currentBlockDOM.querySelector(
+    "[contenteditable = true]",
+  );
+
+  if (!contentEditable) {
+    currentIndex += 1;
+    currentBlock = editorRef.blocks.insert(
+      "paragraph",
+      {},
+      {},
+      currentIndex,
+      true,
+    );
+    contentEditable = currentBlock.holder.querySelector(
+      "[contenteditable = true]",
+    );
+  }
+
+  if (contentEditable) {
+    //   console.log("currentIndex", currentIndex);
+    const focusNode = document.getSelection()?.focusNode;
+    //   console.log("focusNode", focusNode);
+    if (!focusNode) {
+      // console.log("focusNode not found");
+      focusOnBlock(editorRef, currentIndex);
+    } else if (
+      !contentEditable.contains(focusNode) &&
+      !contentEditable.isSameNode(focusNode)
+    ) {
+      // console.log("focusNode not in contentEditable");
+      focusOnBlock(editorRef, currentIndex);
+    }
+    insertTextAtCaret(emoji.native);
+  }
+};

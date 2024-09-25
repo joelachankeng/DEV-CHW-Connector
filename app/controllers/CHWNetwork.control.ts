@@ -1,9 +1,17 @@
 import { gql } from "@apollo/client/core/core.cjs";
-import { GraphQL } from "./graphql.control";
+import type { iGraphQLPageInfo, iGraphQLPagination } from "./graphql.control";
+import {
+  createGraphQLPagination,
+  GraphQL,
+  GRAPHQL_CONSTANTS,
+  printGraphQLPagination,
+} from "./graphql.control";
 import type {
   iWP_CHWNetwork,
   iWP_CHWNetworks,
 } from "~/models/CHWNetwork.model";
+
+export type iWP_CHWNetwork_Pagination = iWP_CHWNetworks & iGraphQLPageInfo;
 
 const CHWNETWORK_QUERY_FIELDS = (userId: string): string => `
 databaseId
@@ -42,11 +50,16 @@ export abstract class CHWNetwork {
 
     public static async getAll(
       userId: string,
-    ): Promise<iWP_CHWNetworks | null | Error> {
-      return await GraphQL.query<iWP_CHWNetworks | null>(
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_CHWNetwork_Pagination | null | Error> {
+      return await GraphQL.query<iWP_CHWNetwork_Pagination | null>(
         gql`
           query MyQuery {
-            cHWNetworks(where: { orderby: { field: DATE, order: DESC } }) {
+            cHWNetworks(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: { orderby: { field: DATE, order: DESC } 
+            }) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 ${CHWNETWORK_QUERY_FIELDS(userId)}
               }
@@ -54,21 +67,27 @@ export abstract class CHWNetwork {
           }
         `,
         async (response) => {
-          return (await response.data.cHWNetworks) as iWP_CHWNetworks | null;
+          return (await response.data
+            .cHWNetworks) as iWP_CHWNetwork_Pagination | null;
         },
       );
     }
 
     public static async getAllByMembership(
       userId: string,
-    ): Promise<iWP_CHWNetworks | null | Error> {
-      return await GraphQL.query<iWP_CHWNetworks | null>(
+      pagination?: iGraphQLPagination,
+    ): Promise<iWP_CHWNetwork_Pagination | null | Error> {
+      return await GraphQL.query<iWP_CHWNetwork_Pagination | null>(
         gql`
           query MyQuery {
-            cHWNetworks(where: { 
-              orderby: { field: DATE, order: DESC, },
-              userMembership: ${userId}
-            }) {
+            cHWNetworks(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: { 
+                orderby: { field: DATE, order: DESC, },
+                userMembership: ${userId}
+              }
+            ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 ${CHWNETWORK_QUERY_FIELDS(userId)}
               }
@@ -76,7 +95,8 @@ export abstract class CHWNetwork {
           }
         `,
         async (response) => {
-          return (await response.data.cHWNetworks) as iWP_CHWNetworks | null;
+          return (await response.data
+            .cHWNetworks) as iWP_CHWNetwork_Pagination | null;
         },
       );
     }

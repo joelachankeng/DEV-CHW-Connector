@@ -55,7 +55,7 @@ export default function ContextMenu({
         >
           <Menu.Items
             className={classNamesOverride(
-              "absolute right-0 z-20 mt-2 origin-top-right divide-y divide-gray-100 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none",
+              "absolute right-0 z-20 mt-2 origin-top-right divide-y-2 divide-gray-200 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none",
               classes?.menu,
             )}
           >

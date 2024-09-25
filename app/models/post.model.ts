@@ -18,22 +18,10 @@ export type iWP_Post = {
     isSaved: boolean;
     content: string;
     score: number;
-    totalComments: {
-      count: number;
-      collection: {
-        createdDate: string;
-        modifiedDate: string;
-        databaseId: number;
-        parentId?: number;
-        postId: number;
-        content: string;
-        author: {
-          databaseId: number;
-          avatarUrl: string;
-          firstName: string;
-          lastName: string;
-        };
-      }[];
+    totalComments: number;
+    firstComments: {
+      total: number;
+      nodes: iWP_Comment[];
     };
     totalShares: {
       count: number;
@@ -92,10 +80,14 @@ export type iWP_Posts = {
 
 export type iWP_Comment = {
   databaseId: number;
+  createdDate: string;
+  modifiedDate?: string;
+  totalReplies: number;
   commentsField: {
     parentId?: number;
     postId: number;
     content: string;
+    isReported: boolean;
     author: {
       databaseId: number;
       firstName: string;

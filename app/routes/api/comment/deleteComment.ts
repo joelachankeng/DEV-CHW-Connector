@@ -20,7 +20,10 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const commentId = formData.get("commentId") as string;
 
-  const comment = await Feed.API.Comment.getComment(commentId);
+  const comment = await Feed.API.Comment.getComment(
+    user.databaseId.toString(),
+    commentId,
+  );
   if (!comment) return json({ error: "COMMENT_NOT_FOUND" }, { status: 404 });
   if (comment instanceof Error)
     return json({ error: comment.message }, { status: 400 });

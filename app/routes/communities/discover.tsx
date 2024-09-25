@@ -8,12 +8,14 @@ import PublicHealthAlertsBanner from "~/components/PublicHealthAlertsBanner/Publ
 import type { iGenericError } from "~/models/appContext.model";
 import { requireUserSession } from "~/servers/userSession.server";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
-import type { iWP_Communites, iWP_Community } from "~/models/community.model";
+import type { iWP_Community } from "~/models/community.model";
 import GroupFollowCard from "~/components/Cards/GroupFollowCard";
 import { APP_CLASSNAMES, APP_ROUTES } from "~/constants";
 import type { iCommunitiesContextState } from "../communities";
-import { calculateOverlappingDistance, classNames } from "~/utilities/main";
+import { classNames } from "~/utilities/main";
 import FullWidthContainer from "~/components/Containers/FullWidthContainer";
+import { usePagination } from "~/utilities/hooks/usePagination";
+import type { iWP_Communites_Pagination } from "~/controllers/community.control";
 
 export const loader: LoaderFunction = async ({ request }) => {
   await requireUserSession(request);
@@ -24,15 +26,17 @@ export default function CommunitiesDiscover() {
   const { layoutContext } = useOutletContext<iCommunitiesContextState>();
 
   const containerElement = useRef<HTMLDivElement>(null);
+  const paginationContainerElement = useRef<HTMLDivElement>(null);
 
   const [communities, setCommunities] = useState<iWP_Community[]>([]);
   const [updatedCommunities, setUpdatedCommunities] = useState<iWP_Community[]>(
     [],
   );
-
   const [updatedCommunitiesIds, setUpdatedCommunitiesIds] = useState<number[]>(
     [],
   );
+  const [sortHasChanged, setSortHasChanged] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { submit: followingFetchSubmit } = useAutoFetcher<
     { id: string; result: string } | (iGenericError & { id: string })
@@ -72,16 +76,33 @@ export default function CommunitiesDiscover() {
   });
 
   const { state: communitiesFetchState, submit: communitiesFetchSubmit } =
-    useAutoFetcher<iWP_Communites | iGenericError>(
+    useAutoFetcher<iWP_Communites_Pagination | iGenericError>(
       "/api/community/getAll",
       (data) => {
+        if (!mounted) setMounted(true);
+        if (sortHasChanged) setSortHasChanged(false);
+
         if ("error" in data) {
           console.error(data.error);
           return;
         }
 
-        setCommunities(data.nodes);
-        setUpdatedCommunities(_.cloneDeep(data.nodes));
+        let newPosts = data.nodes;
+        if (pagination.isLoading) {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+          newPosts = [...communities, ...data.nodes];
+        } else {
+          setPagination({
+            isLoading: false,
+            pageInfo: data.pageInfo,
+          });
+        }
+
+        setCommunities(newPosts);
+        setUpdatedCommunities(_.cloneDeep(newPosts));
         console.log(data);
 
         dispatchEvent(new CustomEvent("postsLoaded"));
@@ -97,6 +118,22 @@ export default function CommunitiesDiscover() {
     if (!containerElement.current) return;
     dispatchEvent(new CustomEvent("postsLoaded"));
   }, [containerElement.current?.clientHeight]);
+
+  const { pagination, setPagination, LoadMoreButton } = usePagination(
+    paginationContainerElement,
+    () => {
+      if (communitiesFetchState !== "idle" || !pagination.pageInfo) {
+        return;
+      }
+      communitiesFetchSubmit(
+        {
+          // sortBy: sortBy,
+          after: pagination.pageInfo.endCursor,
+        },
+        "POST",
+      );
+    },
+  );
 
   const handleUpdateFollowing = (
     following: "REMOVE" | "ADD",
@@ -152,34 +189,49 @@ export default function CommunitiesDiscover() {
           <div className="w-full">
             <h2 className="mb-2 font-bold">Discoverable Communities</h2>
             <hr />
-            {communitiesFetchState !== "idle" ? (
+            {mounted === false || sortHasChanged ? (
               <div className="mx-auto my-8 flex cursor-progress justify-center">
                 <LoadingSpinner />
               </div>
             ) : (
-              <div className="my-4 grid items-start gap-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {updatedCommunities.length > 0 &&
-                  updatedCommunities.map((community: iWP_Community) => (
-                    <GroupFollowCard
-                      key={community.databaseId}
-                      image={community.featuredImage.node.mediaItemUrl}
-                      title={community.title}
-                      membersCount={community.communitiesFields.totalMembers}
-                      url={`${APP_ROUTES.COMMUNITIES}/${community.databaseId}`}
-                      text={{
-                        follow: "Join this Community",
-                        unfollow: "Unjoin",
-                      }}
-                      isMember={community.communitiesFields.isMember}
-                      isLoading={updatedCommunitiesIds.includes(
-                        community.databaseId,
-                      )}
-                      onFollow={(following) =>
-                        handleUpdateFollowing(following, community.databaseId)
-                      }
-                    />
-                  ))}
-              </div>
+              <>
+                <div
+                  ref={paginationContainerElement}
+                  className="my-4 grid items-start gap-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                >
+                  {updatedCommunities.length > 0 &&
+                    updatedCommunities.map((community: iWP_Community) => (
+                      <GroupFollowCard
+                        key={community.databaseId}
+                        image={community.featuredImage.node.mediaItemUrl}
+                        title={community.title}
+                        membersCount={community.communitiesFields.totalMembers}
+                        url={`${APP_ROUTES.COMMUNITIES}/${community.databaseId}`}
+                        text={{
+                          follow: "Join this Community",
+                          unfollow: "Unjoin",
+                        }}
+                        isMember={community.communitiesFields.isMember}
+                        isLoading={updatedCommunitiesIds.includes(
+                          community.databaseId,
+                        )}
+                        onFollow={(following) =>
+                          handleUpdateFollowing(following, community.databaseId)
+                        }
+                      />
+                    ))}
+                </div>
+                <div className="mx-auto my-8 flex flex-col items-center justify-center">
+                  {communitiesFetchState !== "idle" ? (
+                    <LoadingSpinner className="cursor-progress" />
+                  ) : (
+                    <>
+                      {pagination.pageInfo &&
+                        pagination.pageInfo.hasNextPage && <LoadMoreButton />}
+                    </>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>

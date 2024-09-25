@@ -18,14 +18,12 @@ export const APP_ROUTES = {
   MESSAGES: "/messages",
   NOTIFICATIONS: "/notifications",
   ABOUT: "/about",
-  CONTACT: "/contact",
+  CONTACT: "https://admin.chwconnector.org/contact-us/",
   TERMS_OF_USE: "/terms-of-use",
   COMMUNITY_GUIDELINES: "/community-guidelines",
   PRIVACY_POLICY: "/privacy-policy",
   ACCESSIBILITY: "/accessibility",
   SETTINGS: "/settings",
-  HELP_CENTER: "/help-center",
-  ABOUT_CHW_CONNECTOR: "https://nachw.org/about/",
   CONFIRM_EMAIL: "/confirm-email",
 };
 
@@ -44,4 +42,13 @@ export const USER_ROLES = {
   CONTRIBUTOR: "contributor",
   SUBSCRIBER: "subscriber",
   AUTHOR: "author",
+};
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+export const APP_UPLOADS = {
+  FILE_SIZE_LIMIT: {
+    IMAGE: 2 * 1024 * 1024, // 2MB
+    ALL: MAX_FILE_SIZE,
+    VIDEO: MAX_FILE_SIZE,
+  },
 };

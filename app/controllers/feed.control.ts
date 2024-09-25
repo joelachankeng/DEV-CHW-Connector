@@ -1,5 +1,11 @@
 import { gql } from "@apollo/client/core/core.cjs";
-import { GraphQL } from "./graphql.control";
+import type { iGraphQLPageInfo, iGraphQLPagination } from "./graphql.control";
+import {
+  createGraphQLPagination,
+  GraphQL,
+  GRAPHQL_CONSTANTS,
+  printGraphQLPagination,
+} from "./graphql.control";
 import type {
   iWP_Comment,
   iWP_Comments,
@@ -7,6 +13,14 @@ import type {
   iWP_Posts,
   iWP_Posts_EmojisUser,
 } from "~/models/post.model";
+import type { iMutationResponse } from "~/models/appContext.model";
+
+export type iCreatePostComment = iMutationResponse & {
+  comment?: iWP_Comment;
+};
+
+export type iWP_Posts_Pagination = iWP_Posts & iGraphQLPageInfo;
+export type iWP_Comments_Pagination = iWP_Comments & iGraphQLPageInfo;
 
 const POST_QUERY_FIELDS = (userId: string): string => `
   databaseId
@@ -28,21 +42,11 @@ const POST_QUERY_FIELDS = (userId: string): string => `
     isSaved(userId: ${userId})
     content
     score
-    totalComments {
-      count
-      collection {
-        createdDate
-        modifiedDate
-        content
-        databaseId
-        parentId
-        postId
-        author {
-          avatarUrl
-          databaseId
-          firstName
-          lastName
-        }
+    totalComments
+    firstComments {
+      total
+      nodes {
+       ${COMMENT_QUERY_FIELDS(userId)}
       }
     }
     totalShares(userId: ${userId}) {
@@ -96,13 +100,18 @@ const POST_QUERY_FIELDS = (userId: string): string => `
     }
   }
 `;
-const COMMENT_QUERY_FIELDS = (): string => `
+const COMMENT_QUERY_FIELDS = (userId: string): string => `
   databaseId
+  createdDate
+  modifiedDate
+  totalReplies
   commentsField {
     parentId
     postId
     content
+    isReported(userId: ${userId})
     author {
+      avatarUrl
       databaseId
       firstName
       lastName
@@ -135,11 +144,13 @@ export abstract class Feed {
         sortBy: "DATE" | "POPULAR",
         type: "ALL" | "NETWORKS" | "COMMUNITIES",
         typeId?: string,
-      ): Promise<iWP_Posts | null | Error> {
-        return await GraphQL.query<iWP_Posts | null>(
+        pagination?: iGraphQLPagination,
+      ): Promise<iWP_Posts_Pagination | null | Error> {
+        return await GraphQL.query<iWP_Posts_Pagination | null>(
           gql`
           query MyQuery {
             posts(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
               where: { 
                 orderby: { field: ${sortBy}, 
                 order: DESC }, 
@@ -148,6 +159,7 @@ export abstract class Feed {
                 ${typeId ? `feedUserPostTypePostId: ${typeId}` : ""}
               }
             ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
                 ${POST_QUERY_FIELDS(userId)}
               }
@@ -155,12 +167,14 @@ export abstract class Feed {
           }
         `,
           async (response) => {
-            const all = (await response.data.posts) as iWP_Posts | null;
+            const all = (await response.data
+              .posts) as iWP_Posts_Pagination | null;
             if (!all) return all;
             return {
               nodes: all.nodes
                 .map(transformPost)
                 .filter((post) => post !== null && post !== undefined),
+              pageInfo: all.pageInfo,
             };
           },
         );
@@ -352,8 +366,8 @@ export abstract class Feed {
       public static async deletePost(postId: string): Promise<string | Error> {
         return await GraphQL.mutate(gql`
         mutation MyMutation {
-          deletePost(input: { 
-            id: "${postId}"
+          deletePostForce(input: { 
+            postId: "${postId}"
           }) {
             clientMutationId
           }
@@ -364,13 +378,14 @@ export abstract class Feed {
 
     static Comment = class {
       public static async getComment(
+        userId: string,
         commentId: string,
       ): Promise<iWP_Comment | null | Error> {
         return await GraphQL.query<iWP_Comment | null>(
           gql`
           query MyQuery {
             postComment(id: "${commentId}", idType: DATABASE_ID) {
-              ${COMMENT_QUERY_FIELDS()}
+              ${COMMENT_QUERY_FIELDS(userId)}
             }
           }
         `,
@@ -381,20 +396,32 @@ export abstract class Feed {
       }
 
       public static async getPostComments(
+        userId: string,
         postId: string,
-      ): Promise<iWP_Comments | null | Error> {
-        return await GraphQL.query<iWP_Comments | null>(
+        parentId?: string,
+        pagination?: iGraphQLPagination,
+      ): Promise<iWP_Comments_Pagination | null | Error> {
+        return await GraphQL.query<iWP_Comments_Pagination | null>(
           gql`
           query MyQuery {
-            postComments(where: {postId: ${postId}) {
+            postComments(
+              ${printGraphQLPagination(createGraphQLPagination(pagination))}
+              where: {
+                postId: ${postId}
+                ${parentId ? `parentId: ${parentId}` : ""}
+                orderby: {field: DATE, order: ASC}
+              }
+            ) {
+              ${GRAPHQL_CONSTANTS.PAGINATION.QUERY.PAGEINFO}
               nodes {
-                ${COMMENT_QUERY_FIELDS()}
+                ${COMMENT_QUERY_FIELDS(userId)}
               }
             }
           }
           `,
           async (response) => {
-            return (await response.data.postComments) as iWP_Comments | null;
+            return (await response.data
+              .postComments) as iWP_Comments_Pagination | null;
           },
         );
       }
@@ -404,7 +431,7 @@ export abstract class Feed {
         postId: string,
         parentId: string | null | undefined,
         comment: string,
-      ): Promise<string | Error> {
+      ): Promise<iCreatePostComment | Error> {
         const comment64 = btoa(encodeURIComponent(comment)); // Encode to base64 to avoid special characters for GraphQL
         return await GraphQL.mutate(gql`
         mutation MyMutation {
@@ -417,6 +444,9 @@ export abstract class Feed {
             clientMutationId
             message
             success
+            comment {
+              ${COMMENT_QUERY_FIELDS(userId)}
+            }
           }
         }
       `);
@@ -434,6 +464,36 @@ export abstract class Feed {
           }
         }
       `);
+      }
+
+      public static async reportComment(
+        userId: string,
+        commentId: string,
+      ): Promise<string | Error> {
+        return await GraphQL.mutate(gql`
+      mutation MyMutation {
+        userReportPostComment(input: { postId: ${commentId}, userId: ${userId} }) {
+          clientMutationId
+          message
+          success
+        }
+      }
+    `);
+      }
+
+      public static async unReportComment(
+        userId: string,
+        commentId: string,
+      ): Promise<string | Error> {
+        return await GraphQL.mutate(gql`
+      mutation MyMutation {
+        userUnReportPostComment(input: { postId: ${commentId}, userId: ${userId} }) {
+          clientMutationId
+          message
+          success
+        }
+      }
+    `);
       }
     };
   };
