@@ -134,8 +134,8 @@ export default async function messageHandler(
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails: ["jachankeng+1@hria.org"],
-      // emails: emails,
+      //emails: ["jachankeng+1@hria.org"],
+      emails: emails,
       headings: {
         en: "New Message",
       },

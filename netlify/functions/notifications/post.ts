@@ -216,8 +216,8 @@ export default async function postHandler(request: Request, context: Context) {
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails: ["jachankeng+1@hria.org"],
-      // emails: emails,
+      //emails: ["jachankeng+1@hria.org"],
+      emails: emails,
       headings: {
         en: "New Post".concat(
           post.postFields.poster === "GROUP" ? "" : ` in ${groupName}`,
