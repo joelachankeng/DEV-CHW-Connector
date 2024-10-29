@@ -29,7 +29,9 @@
     "/netlify/functions/server",
     "/node_modules",
     "/public/build",
-    "/server/build"
+    "/server/build",
+    "/app/assets/scripts",
+    "/app/components/Editor/plugins"
   ],
   "dependencies": {
     "@apollo/client": "^3.9.11",
@@ -73,6 +75,7 @@
     "remix": "^2.9.1",
     "remix-utils": "^7.6.0",
     "slick-carousel": "^1.8.1",
+    "string-strip-html": "^13.4.8",
     "tiny-invariant": "^1.3.1",
     "zod": "^3.22.4"
   },
