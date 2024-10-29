@@ -4,9 +4,8 @@ import { APP_ROUTES } from "~/constants";
 import type { iWP_Comment, iWP_Post } from "~/models/post.model";
 import { AppContext } from "~/contexts/appContext";
 import Avatar from "../User/Avatar";
-import { calcEditorData } from "./Post";
 import { ClientOnly } from "remix-utils/client-only";
-import { classNames } from "~/utilities/main";
+import { calcEditorData, classNames } from "~/utilities/main";
 import ButtonLoadMore from "../ButtonLoadMore";
 import { EditorBlock } from "../Editor/EditorBlock";
 import type EditorJS from "@editorjs/editorjs";
@@ -32,7 +31,7 @@ export default function PostComment({
   postId: number;
   onSubmit?: (comment: iWP_Comment) => void;
 }) {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const navigation = useNavigate();
 
   const commentId = `comment-${comment.databaseId}`;
@@ -118,19 +117,19 @@ export default function PostComment({
 
   const handleReactComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!appContext.User) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigation(APP_ROUTES.LOGIN);
   };
 
   const handleReplyComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!appContext.User) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigation(APP_ROUTES.LOGIN);
 
     setIsCommentCollapsed(!isCommentCollapsed);
   };
 
   const handleReportComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!appContext.User) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigation(APP_ROUTES.LOGIN);
 
     commentFetchSubmit(
       {
@@ -301,7 +300,7 @@ export default function PostComment({
                   Report
                 </button>
                 {UserPublic.Utils.userCanDeleteComment(
-                  appContext.User,
+                  User.user,
                   groupId,
                   comment.commentsField.author.databaseId,
                 ) && (

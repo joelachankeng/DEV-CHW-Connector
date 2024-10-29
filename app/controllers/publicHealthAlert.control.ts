@@ -38,9 +38,9 @@ export abstract class PublicHealthAlert {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.publicHealthAlerts
-            .nodes[0]) as iWP_PublicHealthAlert | null;
+        (response) => {
+          return response.data.publicHealthAlerts
+            .nodes[0] as iWP_PublicHealthAlert | null;
         },
       );
     }
@@ -62,9 +62,9 @@ export abstract class PublicHealthAlert {
           }
         }
       `,
-        async (response) => {
-          return (await response.data
-            .publicHealthAlert) as iWP_PublicHealthAlert | null;
+        (response) => {
+          return response.data
+            .publicHealthAlert as iWP_PublicHealthAlert | null;
         },
       );
     }
@@ -92,9 +92,9 @@ export abstract class PublicHealthAlert {
             }
           }
         `,
-        async (response) => {
-          return (await response.data
-            .publicHealthAlerts) as iWP_PublicHealthAlert_Pagination;
+        (response) => {
+          return response.data
+            .publicHealthAlerts as iWP_PublicHealthAlert_Pagination;
         },
       );
     }

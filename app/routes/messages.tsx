@@ -12,7 +12,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLoaderData, useLocation } from "@remix-run/react";
 import Avatar from "~/components/User/Avatar";
 import { classNames, URLsMatches } from "~/utilities/main";
-import { MessageNotificationCount } from "~/components/Header/Header";
+import { NotificationCount } from "~/components/Header/Header";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
 import MobileLeftSideBar from "~/components/SideBars/MobileLeftSideBar";
 import SVGFeed from "~/assets/SVGs/SVGFeed";
@@ -69,7 +69,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
 export default function Messages() {
   const { conversations } = useLoaderData<iLoaderData>();
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const location = useLocation();
   const mediaQuery = useMediaSize();
@@ -97,7 +97,7 @@ export default function Messages() {
 
   useEffect(() => {
     const interval = setInterval(function () {
-      if (!appContext.User) return;
+      if (!User.user) return;
       if (isFetching.current) return;
 
       isFetching.current = true;
@@ -117,7 +117,7 @@ export default function Messages() {
         });
     }, 1000);
     return () => clearInterval(interval);
-  }, [appContext.User, fetchAllUnreadMessages]);
+  }, [User.user, fetchAllUnreadMessages]);
 
   useEffect(() => {
     setLayoutContext((prev) => ({
@@ -219,7 +219,7 @@ export default function Messages() {
                               alt={`${item.user.firstName} ${item.user.lastName}`}
                             />
                           </div>
-                          <MessageNotificationCount
+                          <NotificationCount
                             className="!bottom-2 !right-0"
                             count={item.unreadCount}
                           />

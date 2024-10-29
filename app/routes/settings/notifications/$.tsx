@@ -1,6 +1,6 @@
 import { SettingsNotificationsLink } from "./index";
 import { Link, useLocation } from "@remix-run/react";
-import _ from "lodash";
+import _, { set } from "lodash";
 import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import { NotificationSettingsForm } from "~/components/Settings/Notifications/NotificationSettingsForm";
 import type { ActionFunctionArgs } from "@remix-run/node";
@@ -89,7 +89,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function SettingsNotificationsSettings() {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const location = useLocation();
 
   const [currentSettings, setCurrentSettings] = useState<
@@ -97,14 +97,15 @@ export default function SettingsNotificationsSettings() {
   >(undefined);
 
   useEffect(() => {
-    if (!appContext.User?.userFields.notificationSettings) return;
-    setCurrentSettings(
-      parseSettingsFromPathName(
-        location.pathname,
-        appContext.User?.userFields.notificationSettings,
-      ),
+    if (!User.user?.userFields.notificationSettings) return;
+    const settings = parseSettingsFromPathName(
+      location.pathname,
+      User.user.userFields.notificationSettings,
     );
-  }, [appContext.User, location.pathname]);
+    if (_.isEqual(settings, currentSettings)) return;
+
+    setCurrentSettings(settings);
+  }, [User.user, currentSettings, location.pathname]);
 
   return (
     <>

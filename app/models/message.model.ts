@@ -1,6 +1,9 @@
+import type { iWP_Status } from "./post.model";
+
 export type iWP_Message = {
   databaseId: number;
   date: string;
+  status: iWP_Status;
   author: {
     node: {
       databaseId: number;

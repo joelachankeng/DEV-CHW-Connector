@@ -1,3 +1,5 @@
+import type { iWP_Post_Group_Type } from "./post.model";
+
 export const WP_NOTIFICATION_SEPARATOR = " | ";
 export type iNotificationSettings_Type = {
   siteNotifications: boolean;
@@ -114,4 +116,40 @@ export type iWP_NotificationSettings_Prepare = {
 };
 export type iWP_NotificationSettings_Restore = {
   [key in keyof iNotificationSettings_Type]: string[];
+};
+
+export type iWP_NotificationTypes =
+  | "comment"
+  | "post"
+  | "reaction"
+  | "mention"
+  | "message";
+
+export type iWP_Notification = {
+  id: number;
+  user_id: number;
+  type: iWP_NotificationTypes;
+  user_url: string;
+  group_id?: number;
+  group_type?: iWP_Post_Group_Type;
+  group_url?: string;
+  avatar: string;
+  url: string;
+  full_name: string;
+  is_read: boolean;
+  excerpt: string;
+  date: string;
+};
+
+export type iWP_User_NotificationSettings = {
+  ID: string;
+  user_email: string;
+  admin: boolean;
+} & iWP_NotificationSettings_Restore;
+
+export type iWP_Notification_Pagination = {
+  notifications: iWP_Notification[];
+  total: number;
+  offset: number;
+  limit: number;
 };

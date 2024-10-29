@@ -51,17 +51,28 @@ export const loader: LoaderFunction = async ({ request, params }) => {
 
   const networkId = parseInt(paramId ?? "-1");
 
-  const network = await CHWNetwork.API.get(
+  let network = await CHWNetwork.API.get(
     userId.toString(),
     networkId.toString(),
   );
+
+  if (!(network instanceof Error) && network) {
+    if (network.status !== "publish") {
+      if (
+        !(getUser instanceof Error) &&
+        UserPublic.Utils.userIsAdmin(getUser) === false
+      ) {
+        network = new Error("CHW Network not found");
+      }
+    }
+  }
 
   return json<iLoaderData>({
     network: network instanceof Error || network === null ? undefined : network,
   });
 };
 export default function CHWNetworkSingle() {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const { layoutContext } = useOutletContext<iCHWNetworkContextState>();
 
   const { network } = useLoaderData<iLoaderData>();
@@ -282,7 +293,7 @@ export default function CHWNetworkSingle() {
             /> */}
             {networkState &&
               UserPublic.Utils.userCanPostInGroup(
-                appContext.User,
+                User.user,
                 networkState.databaseId,
               ) && (
                 <PostAddNew

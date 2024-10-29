@@ -1,9 +1,10 @@
 import { Link } from "@remix-run/react";
 import { DateTime } from "luxon";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import SVGCloseButton from "~/assets/SVGs/SVGCloseButton";
 import { APP_ROUTES } from "~/constants";
-import { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
+import { AppContext } from "~/contexts/appContext";
+import type { iWP_PublicHealthAlert } from "~/models/publicHealthAlert.model";
 import { classNames } from "~/utilities/main";
 
 export const PublicHealthAlertsBannerClasses = {
@@ -18,6 +19,7 @@ export default function PublicHealthAlertsBanner({
 }: {
   alert: iWP_PublicHealthAlert;
 }) {
+  const { User } = useContext(AppContext);
   const element = useRef<HTMLDivElement>(null);
   const alertSession = useRef<string | null>(null);
 
@@ -56,6 +58,14 @@ export default function PublicHealthAlertsBanner({
   }
 
   if (!mounted || alertSession.current === alert.databaseId.toString())
+    return null;
+
+  if (
+    User.user &&
+    User.user.userFields.notificationSettings["Mobilization Alerts"][
+      "Public Health Alerts"
+    ].siteNotifications === false
+  )
     return null;
 
   return (

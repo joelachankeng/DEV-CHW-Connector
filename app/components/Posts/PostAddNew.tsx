@@ -25,7 +25,7 @@ export default function PostAddNew({
   groupType: iWP_Post_Group_Type;
   onSubmit: () => void;
 }) {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const [collapsed, setCollapsed] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -150,10 +150,10 @@ export default function PostAddNew({
         <div className="flex w-full items-center justify-between gap-2.5">
           <div className="flex w-full items-center gap-5">
             <div className="h-10 w-10">
-              <Link to={`${APP_ROUTES.PROFILE}/${appContext.User?.databaseId}`}>
+              <Link to={`${APP_ROUTES.PROFILE}/${User.user?.databaseId}`}>
                 <Avatar
-                  src={appContext.User?.avatar?.url}
-                  alt={`${appContext.User?.firstName} ${appContext.User?.lastName}`}
+                  src={User.user?.avatar?.url}
+                  alt={`${User.user?.firstName} ${User.user?.lastName}`}
                 />
               </Link>
             </div>
@@ -161,10 +161,10 @@ export default function PostAddNew({
               <div className="font-semibold">
                 <p className="text-sm text-[#686867]">
                   <Link
-                    to={`${APP_ROUTES.PROFILE}/${appContext.User?.databaseId}`}
+                    to={`${APP_ROUTES.PROFILE}/${User.user?.databaseId}`}
                     className="transition duration-300 ease-in-out hover:text-chw-light-purple"
                   >
-                    {appContext.User?.firstName} {appContext.User?.lastName}
+                    {User.user?.firstName} {User.user?.lastName}
                   </Link>
                 </p>
               </div>
@@ -228,10 +228,7 @@ export default function PostAddNew({
               >
                 Post
               </button>
-              {UserPublic.Utils.userCanPostInGroup(
-                appContext.User,
-                groupId,
-              ) && (
+              {UserPublic.Utils.userCanPostInGroup(User.user, groupId) && (
                 <button
                   onClick={(e) => handleSubmit(e, "GROUP")}
                   type="submit"

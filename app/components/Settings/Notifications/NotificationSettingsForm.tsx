@@ -92,7 +92,7 @@ export function NotificationSettingsForm({
   const actionData = useActionData() as iActionData;
   const navigation = useNavigation();
   const submit = useSubmit();
-  const { appContext, setAppContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const [actionDataState, setActionDataState] = useState(actionData);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,29 +110,35 @@ export function NotificationSettingsForm({
       setIsSubmitting(false);
       setActionDataState(actionData);
     }
+    console.log("actionData is ran");
   }, [actionData, isSubmitting, navigation.state]);
 
   useEffect(() => {
     if (!actionDataState) return;
 
     if ("success" in actionDataState) {
-      const newAppContext = _.cloneDeep(appContext);
-      if (!newAppContext.User) return;
-      if (!("User" in newAppContext)) return;
+      if (!User.user) return;
+      const newUser = _.cloneDeep(User.user);
 
-      newAppContext.User.userFields.notificationSettings =
-        actionDataState.success;
+      newUser.userFields.notificationSettings = actionDataState.success;
 
       if (
         !_.isEqual(
-          appContext.User?.userFields.notificationSettings,
+          User.user.userFields.notificationSettings,
           actionDataState.success,
         )
       ) {
-        setAppContext(newAppContext);
+        console.log(
+          "User.user.userFields.notificationSettings",
+          User.user.userFields.notificationSettings,
+        );
+
+        User.set(newUser);
+        // setActionDataState(undefined);
       }
     }
-  }, [actionDataState, appContext, setAppContext]);
+    console.log("actionDataState is ran");
+  }, [actionDataState]);
 
   const handleSubmit = (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();

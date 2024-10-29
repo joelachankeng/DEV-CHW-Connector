@@ -5,7 +5,6 @@ import { ListBoxField } from "~/components/Forms/ListBoxField";
 import SearchField from "~/components/Forms/SearchField";
 import LoadingSpinner from "~/components/Loading/LoadingSpinner";
 import MessageThreadPreview from "~/components/Messages/MessageThreadPreview";
-import { getParagraphTextFromEditorData } from "~/components/Posts/Post";
 import Avatar from "~/components/User/Avatar";
 import { APP_ROUTES } from "~/constants";
 import type { iPublicUser } from "~/controllers/user.control";
@@ -14,10 +13,11 @@ import type { iGenericError } from "~/models/appContext.model";
 import type { iWP_Conversations } from "~/models/message.model";
 import type { iPublicUsers_Pagination } from "~/routes/api/user/search";
 import type { iMessagesContextState } from "~/routes/messages";
+import { excerpts } from "~/utilities/excerpts";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
 import { usePagination } from "~/utilities/hooks/usePagination";
-import { classNames, stripHtml } from "~/utilities/main";
+import { classNames, getParagraphTextFromEditorData } from "~/utilities/main";
 
 export default function MessagesIndex() {
   const { layoutContext } = useOutletContext<iMessagesContextState>();
@@ -278,7 +278,7 @@ export function MessagesFeed({
             profileLink={`${APP_ROUTES.MESSAGES}/${item.user.databaseId}`}
             name={`${item.user.firstName} ${item.user.lastName}`}
             dateTime={item.message.date}
-            previewMessage={stripHtml(
+            previewMessage={excerpts(
               getParagraphTextFromEditorData(
                 item.message.messageFields.content,
               ),

@@ -2,26 +2,58 @@ import { createContext } from "react";
 import type { iAppContext } from "~/models/appContext.model";
 
 export const defaultAppContext: iAppContext = {
-  User: undefined,
+  User: {
+    user: undefined,
+    set: () => {
+      throw new Error("set method not implemented.");
+    },
+  },
   UploadKeys: {
-    authorization: "",
-    uploadUrl: "",
-    avatarUrl: "",
+    uploadKeys: {
+      authorization: "",
+      uploadUrl: "",
+      avatarUrl: "",
+    },
+    set: () => {
+      throw new Error("set method not implemented.");
+    },
   },
   UploadManager: {
-    attachments: [],
+    uploadManager: {
+      attachments: [],
+    },
+    set: () => {
+      throw new Error("set method not implemented.");
+    },
   },
-  NotificationManager: [],
+  NotificationManager: {
+    notificationManager: [],
+    setNotifications: () => {
+      throw new Error("setNotifications method not implemented.");
+    },
+    addNotification: () => {
+      throw new Error("addNotification method not implemented.");
+    },
+    removeNotification: () => {
+      throw new Error("removeNotification method not implemented.");
+    },
+    unreadIds: [],
+    setUnreadIds: () => {
+      throw new Error("setUnreadIds method not implemented.");
+    },
+    addUnreadId: () => {
+      throw new Error("addUnreadId method not implemented.");
+    },
+  },
   MessagesManager: {
     unreadIds: [],
+    setUnreadIds: () => {
+      throw new Error("setUnreadIds method not implemented.");
+    },
+    addUnreadId: () => {
+      throw new Error("addUnreadId method not implemented.");
+    },
   },
 };
-export const AppContext = createContext<{
-  appContext: iAppContext;
-  setAppContext: (appContext: iAppContext) => void;
-}>({
-  appContext: defaultAppContext,
-  setAppContext: () => {
-    return;
-  },
-});
+
+export const AppContext = createContext<iAppContext>(defaultAppContext);

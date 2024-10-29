@@ -12,6 +12,7 @@ import type { iSimpleJWTValidation } from "~/models/wpJWT.model";
 import { decryptForWP, encryptForWP } from "~/utilities/main";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
+invariant(process.env.SESSION_AES_IV, "SESSION_AES_IV must be set");
 
 const userSessionCookie = createCookie("__session", {
   secrets: [process.env.SESSION_SECRET!],

@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { APP_DATE_FORMAT, APP_TIMEZONE } from "~/constants";
 import crypto from "crypto";
 import GraphemeSplitter from "grapheme-splitter";
-import _ from "lodash";
+import type { OutputData } from "@editorjs/editorjs";
 
 export interface iClassNamesOverride {
   className: string;
@@ -317,8 +317,29 @@ export const escapeSpecialChars = (value: string): string => {
     .replace(/'/g, "&#039;");
 };
 
+export const decodeEntities = (encodedString: string): string => {
+  const translate_re = /&(nbsp|amp|quot|lt|gt);/g;
+  const translate = {
+    nbsp: " ",
+    amp: "&",
+    quot: '"',
+    lt: "<",
+    gt: ">",
+  };
+  return encodedString
+    .replace(translate_re, function (match, entity) {
+      return translate[entity as keyof typeof translate];
+    })
+    .replace(/&#(\d+);/gi, function (match, numStr) {
+      const num = parseInt(numStr, 10);
+      return String.fromCharCode(num);
+    });
+};
+
 export const stripHtml = (html: string): string => {
-  return html.replace(/<[^>]*>?/gm, "").replace(/<\/[^>]+(>|$)/g, "");
+  return decodeEntities(
+    html.replace(/<[^>]*>?/gm, "").replace(/<\/[^>]+(>|$)/g, ""),
+  );
 };
 
 export const isToday = (date: DateTime) => {
@@ -402,3 +423,39 @@ export const hasEmoji = (text: string): boolean => {
   }
   return false;
 };
+
+export function calcEditorData(editorSavedData: string): OutputData {
+  let editorData: OutputData = {
+    blocks: [],
+  };
+  try {
+    const convertedData = decodeURIComponent(atob(editorSavedData));
+    editorData = JSON.parse(convertedData) as OutputData;
+  } catch (error) {
+    editorData.blocks = [
+      {
+        type: "paragraph",
+        data: {
+          text: "An error occurred while trying to load this post.",
+        },
+      },
+    ];
+  }
+  return editorData as OutputData;
+}
+
+export function getParagraphTextFromEditorData(
+  editorSavedData: string,
+): string {
+  const editorData = calcEditorData(editorSavedData);
+  if (!editorData.blocks) return "";
+  if (editorData.blocks.length === 0) return "";
+
+  const paragraphBlocks = editorData.blocks.filter(
+    (block) => block.type.toLowerCase() === "paragraph",
+  );
+  if (paragraphBlocks.length > 0) {
+    return paragraphBlocks.map((block) => block.data.text).join(" ");
+  }
+  return `[${editorData.blocks[0].type}]`;
+}

@@ -5,15 +5,15 @@ import AlertMP3 from "~/assets/Audio/alert.mp3";
 import AlertError from "~/assets/Audio/alert-error.mp3";
 import NotificationItemGeneral from "./Items/NotificationItemGeneral";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import {
-  IconDefinition,
   faBell,
   faCheckCircle,
   faCircleExclamation,
+  faCommentMedical,
   faXmarkCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { classNames } from "~/utilities/main";
-import SVGAvatar from "~/assets/SVGs/SVGAvatar";
 import Avatar from "~/components/User/Avatar";
 import { Link } from "@remix-run/react";
 import { DateTime } from "luxon";
@@ -35,7 +35,7 @@ export type iNotificationItem_General = {
 };
 
 export type iNotificationItem_UserInteraction = {
-  type: "user interaction" | "message";
+  type: "user interaction" | "message" | "post";
   avatarURL?: string;
   userURL: string;
   name: string;
@@ -162,6 +162,7 @@ export default function NotificationItem({
   const renderNotificationItem = (): JSX.Element => {
     switch (data.type) {
       case "message":
+      case "post":
         return (
           <NotificationItemGeneral
             icon={
@@ -174,22 +175,31 @@ export default function NotificationItem({
                   <Link to={data.userURL}>
                     <Avatar alt={data.name} src={data.avatarURL} />
                     <span className="absolute -bottom-1 right-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-chw-yellow">
-                      <svg
-                        className="h-4 w-4 text-white"
-                        aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 18"
-                        fill="currentColor"
-                      >
-                        <path
-                          d="M18 4H16V9C16 10.0609 15.5786 11.0783 14.8284 11.8284C14.0783 12.5786 13.0609 13 12 13H9L6.846 14.615C7.17993 14.8628 7.58418 14.9977 8 15H11.667L15.4 17.8C15.5731 17.9298 15.7836 18 16 18C16.2652 18 16.5196 17.8946 16.7071 17.7071C16.8946 17.5196 17 17.2652 17 17V15H18C18.5304 15 19.0391 14.7893 19.4142 14.4142C19.7893 14.0391 20 13.5304 20 13V6C20 5.46957 19.7893 4.96086 19.4142 4.58579C19.0391 4.21071 18.5304 4 18 4Z"
+                      {data.type === "message" && (
+                        <svg
+                          className="h-4 w-4 text-white"
+                          aria-hidden="true"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 18"
                           fill="currentColor"
-                        ></path>
-                        <path
-                          d="M12 0H2C1.46957 0 0.960859 0.210714 0.585786 0.585786C0.210714 0.960859 0 1.46957 0 2V9C0 9.53043 0.210714 10.0391 0.585786 10.4142C0.960859 10.7893 1.46957 11 2 11H3V13C3 13.1857 3.05171 13.3678 3.14935 13.5257C3.24698 13.6837 3.38668 13.8114 3.55279 13.8944C3.71889 13.9775 3.90484 14.0126 4.08981 13.996C4.27477 13.9793 4.45143 13.9114 4.6 13.8L8.333 11H12C12.5304 11 13.0391 10.7893 13.4142 10.4142C13.7893 10.0391 14 9.53043 14 9V2C14 1.46957 13.7893 0.960859 13.4142 0.585786C13.0391 0.210714 12.5304 0 12 0Z"
-                          fill="currentColor"
-                        ></path>
-                      </svg>
+                        >
+                          <path
+                            d="M18 4H16V9C16 10.0609 15.5786 11.0783 14.8284 11.8284C14.0783 12.5786 13.0609 13 12 13H9L6.846 14.615C7.17993 14.8628 7.58418 14.9977 8 15H11.667L15.4 17.8C15.5731 17.9298 15.7836 18 16 18C16.2652 18 16.5196 17.8946 16.7071 17.7071C16.8946 17.5196 17 17.2652 17 17V15H18C18.5304 15 19.0391 14.7893 19.4142 14.4142C19.7893 14.0391 20 13.5304 20 13V6C20 5.46957 19.7893 4.96086 19.4142 4.58579C19.0391 4.21071 18.5304 4 18 4Z"
+                            fill="currentColor"
+                          ></path>
+                          <path
+                            d="M12 0H2C1.46957 0 0.960859 0.210714 0.585786 0.585786C0.210714 0.960859 0 1.46957 0 2V9C0 9.53043 0.210714 10.0391 0.585786 10.4142C0.960859 10.7893 1.46957 11 2 11H3V13C3 13.1857 3.05171 13.3678 3.14935 13.5257C3.24698 13.6837 3.38668 13.8114 3.55279 13.8944C3.71889 13.9775 3.90484 14.0126 4.08981 13.996C4.27477 13.9793 4.45143 13.9114 4.6 13.8L8.333 11H12C12.5304 11 13.0391 10.7893 13.4142 10.4142C13.7893 10.0391 14 9.53043 14 9V2C14 1.46957 13.7893 0.960859 13.4142 0.585786C13.0391 0.210714 12.5304 0 12 0Z"
+                            fill="currentColor"
+                          ></path>
+                        </svg>
+                      )}
+                      {data.type === "post" && (
+                        <FontAwesomeIcon
+                          icon={faCommentMedical}
+                          className="h-4 w-4 text-white"
+                          aria-hidden="true"
+                        />
+                      )}
                     </span>
                   </Link>
                 </div>
@@ -200,7 +210,7 @@ export default function NotificationItem({
             <div>
               <div className="text-sm font-semibold text-gray-900 dark:text-white">
                 <Link
-                  to={data.userURL}
+                  to={data.type === "message" ? data.userURL : data.contentURL}
                   className="font-semibold transition duration-300 ease-in-out hover:underline"
                 >
                   {data.name}
@@ -218,7 +228,7 @@ export default function NotificationItem({
                     "w-full rounded-[40px] border-[none] px-3 py-2 text-center text-xs font-medium transition duration-300 ease-in-out",
                   )}
                 >
-                  Reply
+                  {data.type === "message" ? "Reply" : "View"}
                 </Link>
               </div>
             </div>

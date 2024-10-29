@@ -21,8 +21,8 @@ export abstract class PageController {
               }
             }
           `,
-        async (response) => {
-          return (await response.data.page) as iWP_Page | null;
+        (response) => {
+          return response.data.page as iWP_Page | null;
         },
       );
     }

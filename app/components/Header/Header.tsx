@@ -30,6 +30,7 @@ import SVGContact from "~/assets/SVGs/SVGContact";
 import { useMediaSize } from "~/utilities/hooks/useMediaSize";
 import { AppContext } from "~/contexts/appContext";
 import Avatar from "../User/Avatar";
+import { UserPublic } from "~/controllers/user.control.public";
 
 const profileMenu: iMenuItemsListItems[][] = [
   [
@@ -130,36 +131,48 @@ const headerPaddingClasses = {
 };
 
 export default function Header() {
-  const { appContext } = useContext(AppContext);
+  const { NotificationManager, MessagesManager, User } = useContext(AppContext);
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const mediaQuery = useMediaSize();
 
-  const createMessageMenuIcon = useCallback(
-    (unreadCount: number): JSX.Element => {
-      return (
-        <>
-          <div className="relative">
-            <SVGEmail />
-            <MessageNotificationCount
-              count={appContext.MessagesManager.unreadIds.length}
-            />
-          </div>
-        </>
-      );
-    },
-    [appContext.MessagesManager.unreadIds.length],
-  );
+  const createMessageMenuIcon = useCallback((): JSX.Element => {
+    return (
+      <>
+        <div className="relative h-full w-full">
+          <SVGEmail />
+          <NotificationCount
+            className="!-bottom-1"
+            count={MessagesManager.unreadIds.length}
+          />
+        </div>
+      </>
+    );
+  }, [MessagesManager.unreadIds.length]);
+
+  const createNotificationMenuIcon = useCallback((): JSX.Element => {
+    return (
+      <>
+        <div className="relative h-full w-full">
+          <SVGBell />
+          <NotificationCount
+            className="!-bottom-1"
+            count={NotificationManager.unreadIds.length}
+          />
+        </div>
+      </>
+    );
+  }, [NotificationManager.unreadIds.length]);
 
   const AccountNavLinks: iHeaderNav["items"] = [
     {
       title: "Messages",
       url: APP_ROUTES.MESSAGES.concat("?view=feed"),
-      icon: createMessageMenuIcon(appContext.MessagesManager.unreadIds.length),
+      icon: createMessageMenuIcon(),
     },
     {
       title: "Notifications",
       url: APP_ROUTES.NOTIFICATIONS,
-      icon: <SVGBell />,
+      icon: createNotificationMenuIcon(),
       className: "max-lg:!hidden",
     },
     {
@@ -233,20 +246,34 @@ export default function Header() {
           if (item.title.toLowerCase() === "messages") {
             return {
               ...item,
-              icon: createMessageMenuIcon(
-                appContext.MessagesManager.unreadIds.length,
-              ),
+              icon: createMessageMenuIcon(),
             };
           }
           return item;
         });
       });
     });
-  }, [appContext.MessagesManager.unreadIds, createMessageMenuIcon]);
+  }, [MessagesManager.unreadIds, createMessageMenuIcon]);
+
+  useEffect(() => {
+    setMenus((prev) => {
+      return prev.map((menu) => {
+        return menu.map((item) => {
+          if (item.title.toLowerCase() === "notifications") {
+            return {
+              ...item,
+              icon: createNotificationMenuIcon(),
+            };
+          }
+          return item;
+        });
+      });
+    });
+  }, [NotificationManager.unreadIds, createNotificationMenuIcon]);
 
   const getAccountNavItems = (): iHeaderNav["items"] => {
     const accountNavItems = menus[1];
-    if (appContext.User) return accountNavItems;
+    if (User.user) return accountNavItems;
 
     const emptyItem = {
       title: "",
@@ -390,6 +417,15 @@ export default function Header() {
               <div className="-mx-5 flex flex-col divide-y-2 divide-[#C1BAB4]">
                 <MenuItemsList items={profileSideMenu} itemClassName="!py-5" />
               </div>
+              {/* {User.user && UserPublic.Utils.userIsAdmin(User.user) && (
+                <>
+                  <div className="mb-5 flex flex-col gap-2">
+                    <p className=" font-bold text-[#686867]">Dev Routes:</p>
+                    <Link to={`/test`}>Test Page</Link>
+                    <Link to={`/nativefunction`}>Native Function</Link>
+                  </div>
+                </>
+              )} */}
             </Menu>
           </div>
           <div className="mb-5 mt-auto flex flex-col gap-5">
@@ -417,26 +453,26 @@ export default function Header() {
 }
 
 function ProfileButton() {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(
-    appContext.User?.avatar.url,
+    User.user?.avatar.url,
   );
   const [name, setName] = useState<string | undefined>(
-    `${appContext.User?.firstName} ${appContext.User?.lastName}`,
+    `${User.user?.firstName} ${User.user?.lastName}`,
   );
 
   useEffect(() => {
-    setAvatarUrl(appContext.User?.avatar.url);
-  }, [appContext.User?.avatar.url]);
+    setAvatarUrl(User.user?.avatar.url);
+  }, [User.user?.avatar.url]);
 
   useEffect(() => {
-    setName(`${appContext.User?.firstName} ${appContext.User?.lastName}`);
-  }, [appContext.User?.firstName, appContext.User?.lastName]);
+    setName(`${User.user?.firstName} ${User.user?.lastName}`);
+  }, [User.user?.firstName, User.user?.lastName]);
 
   return (
     <>
       <div className="h-14 w-14 max-md:h-10 max-md:w-10">
-        {appContext.User?.avatar ? (
+        {User.user?.avatar ? (
           <Avatar src={avatarUrl} alt={name || "User's Avatar"} />
         ) : (
           <SVGAvatarTwo />
@@ -447,7 +483,7 @@ function ProfileButton() {
   );
 }
 
-export function MessageNotificationCount({
+export function NotificationCount({
   count,
   className,
 }: {

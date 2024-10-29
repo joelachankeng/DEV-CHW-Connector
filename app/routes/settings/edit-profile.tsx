@@ -576,7 +576,7 @@ export default function SettingsEditProfile() {
     | { error: string }
     | { error: iProfileFormFields }
   >();
-  const { appContext, setAppContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const navigation = useNavigation();
   const submit = useSubmit();
 
@@ -586,7 +586,7 @@ export default function SettingsEditProfile() {
     content: "",
   });
   const [profileFields, setProfileFields] = useState<iProfileFormFields>(
-    convertUserToProfileFormFields(appContext.User),
+    convertUserToProfileFormFields(User.user),
   );
 
   console.log("profileFields", profileFields);
@@ -648,11 +648,7 @@ export default function SettingsEditProfile() {
     }
 
     if ("success" in actionDataState.current) {
-      const newAppContext = {
-        ...appContext,
-        User: actionDataState.current.success,
-      };
-      setAppContext(newAppContext);
+      User.set(actionDataState.current.success);
       const newProfileFields = convertUserToProfileFormFields(
         actionDataState.current.success,
       );
@@ -662,13 +658,7 @@ export default function SettingsEditProfile() {
 
     setIsSubmitting(false);
     setHasChanged(false);
-  }, [
-    actionDataState,
-    appContext,
-    isSubmitting,
-    navigation.state,
-    setAppContext,
-  ]);
+  }, [actionDataState, User, isSubmitting, navigation.state]);
 
   useEffect(() => {
     if (resendVerificationEmailDuration === 0) return;
@@ -685,7 +675,7 @@ export default function SettingsEditProfile() {
 
     sendEmailConfirmationFetchSubmit(
       {
-        email: appContext.User?.userFields.changeemail.newEmail || "",
+        email: User.user?.userFields.changeemail.newEmail || "",
       },
       "POST",
     );
@@ -699,7 +689,7 @@ export default function SettingsEditProfile() {
     setSelectedFile(undefined);
     setHasChanged(true);
 
-    let newValue = appContext.User?.avatar.url || "";
+    let newValue = User.user?.avatar.url || "";
     if (profileFields.avatar.value === newValue) newValue = "";
     setProfileFields((prev) => {
       return {
@@ -727,7 +717,7 @@ export default function SettingsEditProfile() {
         return {
           ...prev,
           avatar: {
-            value: appContext.User?.avatar.url || "",
+            value: User.user?.avatar.url || "",
             error: "Please upload an image file less than 1MB",
           },
         };
@@ -753,16 +743,16 @@ export default function SettingsEditProfile() {
     let deleteImage = false;
 
     if (
-      profileFields.avatar.value === appContext.User?.avatar.url ||
+      profileFields.avatar.value === User.user?.avatar.url ||
       (profileFields.avatar.value === "" &&
-        (appContext.User?.avatar.url === "" ||
-          appContext.User?.avatar.url === undefined ||
-          appContext.User?.avatar.url === null))
+        (User.user?.avatar.url === "" ||
+          User.user?.avatar.url === undefined ||
+          User.user?.avatar.url === null))
     )
       return newAvatar;
 
     if (!profileFields.avatar.value) {
-      if (appContext.User?.avatar.url) {
+      if (User.user?.avatar.url) {
         deleteImage = true;
       }
     }
@@ -785,17 +775,16 @@ export default function SettingsEditProfile() {
       if (result.status === 200) {
         newAvatar.value = result.data.url;
 
-        if (appContext.User) {
-          const newAppContext = {
-            ...appContext,
-            User: {
-              ...appContext.User,
+        if (User.user) {
+          User.set((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
               avatar: {
                 url: newAvatar.value,
               },
-            },
-          };
-          setAppContext(newAppContext);
+            };
+          });
         }
       }
     } catch (error) {
@@ -811,7 +800,7 @@ export default function SettingsEditProfile() {
         }
       }
 
-      newAvatar.value = appContext.User?.avatar.url || "";
+      newAvatar.value = User.user?.avatar.url || "";
       newAvatar.error = errorMessage;
     } finally {
       setProfileFields((prev) => {
@@ -964,7 +953,7 @@ export default function SettingsEditProfile() {
   };
 
   const emailExpiration = parseDateTimeGraphql(
-    appContext.User?.userFields.changeemail.expiration || "",
+    User.user?.userFields.changeemail.expiration || "",
   );
 
   return (
@@ -1090,7 +1079,7 @@ export default function SettingsEditProfile() {
             <div className="relative flex items-center">
               <InputField
                 required
-                readOnly={appContext.User?.userFields.createdViaMemberclicks}
+                readOnly={User.user?.userFields.createdViaMemberclicks}
                 value={profileFields.email.value}
                 onChange={(e) => updateFieldValue("email", e.target.value)}
                 classes={{
@@ -1100,7 +1089,7 @@ export default function SettingsEditProfile() {
                   input: {
                     className: classNames(
                       "bg-white pr-14",
-                      appContext.User?.userFields.createdViaMemberclicks
+                      User.user?.userFields.createdViaMemberclicks
                         ? "!bg-[#f5f6f7] cursor-default"
                         : "",
                     ),
@@ -1117,7 +1106,7 @@ export default function SettingsEditProfile() {
                 className={classNames("absolute right-0", "mr-5")}
               />
             </div>
-            {appContext.User?.userFields.createdViaMemberclicks && (
+            {User.user?.userFields.createdViaMemberclicks && (
               <div className="mb-2 mt-1 text-sm font-semibold text-chw-dark-purple">
                 <p>
                   Your email was created via Memberclicks. Please{" "}
@@ -1133,12 +1122,12 @@ export default function SettingsEditProfile() {
             )}
             <PrivacyLabel isPrivate={!profileFields.email.public} />
             <ErrorMessage message={profileFields.email.error} />
-            {appContext.User?.userFields.changeemail.newEmail && (
+            {User.user?.userFields.changeemail.newEmail && (
               <>
                 <div className="mt-1 text-sm font-semibold italic text-chw-dark-purple">
                   <p>
                     A confirmation email has been sent to{" "}
-                    {appContext.User?.userFields.changeemail.newEmail}
+                    {User.user?.userFields.changeemail.newEmail}
                   </p>
                   {emailExpiration.isValid &&
                   emailExpiration.diff(getCurrentDateTime()).as("minutes") <=

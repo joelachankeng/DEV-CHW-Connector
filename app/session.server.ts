@@ -21,6 +21,8 @@ invariant(process.env.WP_ADMIN_PASSWORD, "WP_ADMIN_PASSWORD");
 invariant(process.env.MAILGUN_API_KEY, "MAILGUN_API_KEY");
 invariant(process.env.MAILGUN_DOMAIN, "MAILGUN_DOMAIN");
 invariant(process.env.MAILGUN_FROM, "MAILGUN_FROM");
+invariant(process.env.ONESIGNAL_APP_ID, "ONESIGNAL_APP_ID");
+invariant(process.env.ONESIGNAL_REST_API_KEY, "ONESIGNAL_REST_API_KEY");
 
 export const APP_KEYS = {
   PRIVATE: {
@@ -34,6 +36,8 @@ export const APP_KEYS = {
     WP_ADMIN_USERNAME: process.env.WP_ADMIN_USERNAME,
     WP_ADMIN_PASSWORD: process.env.WP_ADMIN_PASSWORD,
     MAILGUN_API_KEY: process.env.MAILGUN_API_KEY,
+    ONESIGNAL_APP_ID: process.env.ONESIGNAL_APP_ID,
+    ONESIGNAL_REST_API_KEY: process.env.ONESIGNAL_REST_API_KEY,
   },
   PUBLIC: {
     MC_CLIENT_ID: process.env.MC_CLIENT_ID,

@@ -15,9 +15,7 @@ import {
 import { AppContext } from "~/contexts/appContext";
 
 export default function UploadManager() {
-  const { appContext, setAppContext } = useContext(AppContext);
-
-  const { UploadManager } = appContext;
+  const { UploadManager } = useContext(AppContext);
 
   const [isVisible, setIsVisible] = useState(false);
 
@@ -39,14 +37,14 @@ export default function UploadManager() {
   }, []);
 
   useEffect(() => {
-    if (UploadManager.attachments.length > 0) {
+    if (UploadManager.uploadManager.attachments.length > 0) {
       setIsVisible(true);
       window.addEventListener("beforeunload", preventWindowClosing);
     } else {
       setIsVisible(false);
       window.removeEventListener("beforeunload", preventWindowClosing);
     }
-  }, [UploadManager.attachments.length]);
+  }, [UploadManager.uploadManager.attachments.length]);
 
   function updatePositon() {
     if (!element.current) return;
@@ -135,7 +133,7 @@ export default function UploadManager() {
               transition={"height 300ms cubic-bezier(0.4, 0, 0.2, 1)"}
             >
               <div className="round max-h-80 overflow-auto p-4 scrollbar-thin scrollbar-track-gray-50 scrollbar-thumb-chw-black-shadows">
-                {UploadManager.attachments.map((item, index) => (
+                {UploadManager.uploadManager.attachments.map((item, index) => (
                   <div
                     key={`${item.file.name}-${index}`}
                     className="group relative flex items-center gap-x-6 rounded-lg p-2 hover:bg-gray-50"

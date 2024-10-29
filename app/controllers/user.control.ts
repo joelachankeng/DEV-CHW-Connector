@@ -1,7 +1,7 @@
 import { gql } from "@apollo/client/core/core.cjs";
 import type { TypedResponse } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import { handleRequestFormFieldsValidation } from "~/components/Forms/FormFields";
 import type {
   iMemberClicksAccessTokenResponse,
@@ -73,6 +73,7 @@ import type {
   iNotificationSettings_Type,
   iWP_NotificationSettings_Prepare,
   iWP_NotificationSettings_Restore,
+  iWP_User_NotificationSettings,
 } from "~/models/notifications.model";
 import {
   defaultNotificationSettings,
@@ -242,13 +243,14 @@ export abstract class User {
           }
         `,
 
-        async (response) => {
-          const userData = (await response.data.user) as
-            | iWP_User
-            | null
-            | undefined;
-          if (!userData) return null;
-          return transformUser(userData) as iWP_User;
+        (response) => {
+          const userData = response.data.user as iWP_User | null | undefined;
+          if (!userData) {
+            console.error("User not found");
+            return null;
+          }
+          const newUser = transformUser(userData) as iWP_User;
+          return newUser;
         },
       );
     }
@@ -276,9 +278,8 @@ export abstract class User {
           }
         `,
 
-        async (response) => {
-          const all = (await response.data
-            .users) as iWP_Users_Pagination | null;
+        (response) => {
+          const all = response.data.users as iWP_Users_Pagination | null;
           if (!all) return all;
 
           const nodes = all.nodes
@@ -337,7 +338,7 @@ export abstract class User {
           }
         `,
         // eslint-disable-next-line @typescript-eslint/require-await
-        async (response) => {
+        (response) => {
           return response.data.user.userFields
             .resetPassword as iWP_User_RestPassword | null;
         },
@@ -420,7 +421,7 @@ export abstract class User {
           }
         `,
         // eslint-disable-next-line @typescript-eslint/require-await
-        async (response) => {
+        (response) => {
           return response.data.user.userFields.checkPassword as boolean | null;
         },
       );
@@ -479,7 +480,7 @@ export abstract class User {
           }
         `,
         // eslint-disable-next-line @typescript-eslint/require-await
-        async (response) => {
+        (response) => {
           return response.data.user.userFields.checkPassword as boolean | null;
         },
       );
@@ -499,7 +500,7 @@ export abstract class User {
           }
         `,
         // eslint-disable-next-line @typescript-eslint/require-await
-        async (response) => {
+        (response) => {
           return response.data.user.userFields.getAllUnreadMessagesIds as
             | number[]
             | null;
@@ -522,8 +523,8 @@ export abstract class User {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.user.userFields.getAllUnreadMessages) as
+        (response) => {
+          return response.data.user.userFields.getAllUnreadMessages as
             | iWP_Message[]
             | null;
         },
@@ -556,11 +557,104 @@ export abstract class User {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.user.userFields
-            .getMessageConversations) as iWP_Conversations[] | null;
+        (response) => {
+          return response.data.user.userFields.getMessageConversations as
+            | iWP_Conversations[]
+            | null;
         },
       );
+    }
+    public static async getLastOnline(
+      userId: string,
+    ): Promise<string | Error | null> {
+      return await GraphQL.query<string | null>(
+        gql`
+          query MyQuery {
+            user(idType: DATABASE_ID, id: "${userId}") {
+              userFields {
+                lastOnline
+              }
+            }
+          }
+        `,
+        (response) => {
+          return response.data.user.userFields.lastOnline as string | null;
+        },
+      );
+    }
+
+    public static async setLastOnline(
+      userId: string,
+      onlineDate?: string,
+    ): Promise<string | Error | null> {
+      let lastOnlineDate = onlineDate;
+      if (!onlineDate) {
+        const currentDate = new Date();
+        lastOnlineDate = convertDateTimeForACF(currentDate);
+        const lastOnline = await User.API.getLastOnline(userId);
+
+        // if last online is less than a minute ago, don't update
+        // this is to prevent spamming the database and causing a lock on the user table
+        if (!(lastOnline instanceof Error) && lastOnline !== null) {
+          const lastOnlineConverted = parseDateTimeGraphql(lastOnline);
+          if (lastOnlineConverted.isValid) {
+            const minutesPassed = getCurrentDateTime()
+              .diff(lastOnlineConverted)
+              .as("minutes");
+            if (minutesPassed < 1) {
+              return lastOnlineDate;
+            }
+          }
+        }
+      }
+
+      return await GraphQL.mutate(gql`
+        mutation MyMutation {
+          updateUser(
+            input: {
+              id: "${userId}"
+              lastOnline: "${lastOnlineDate}"
+            }
+          ) {
+            clientMutationId
+          }
+        }
+      `);
+    }
+
+    public static async getNotificationSettings(
+      query:
+        | {
+            userIds: number[] | string[];
+          }
+        | "ALL USERS",
+    ): Promise<iWP_User_NotificationSettings[] | Error> {
+      const formData = new FormData();
+      formData.append("authorization", process.env.SESSION_SECRET || "");
+      if (query === "ALL USERS") {
+        formData.append("all", "true");
+      } else {
+        if (query.userIds.length === 0)
+          return new Error("No user ids provided");
+        formData.append("user_ids", JSON.stringify(query.userIds));
+      }
+      try {
+        const response = await axios.post(
+          `${APP_KEYS.PUBLIC.WP_REST_URL}/user/notificationSettings`,
+          formData,
+        );
+        if (response.data) return response.data;
+      } catch (error: unknown) {
+        if (isAxiosError(error)) {
+          const data = error.response?.data;
+          if (data) {
+            if (typeof data === "string") return new Error(data);
+            if (typeof data === "object")
+              return new Error(JSON.stringify(data));
+          }
+        }
+      }
+      return new Error("An unexpected error occurred");
     }
   };
 
@@ -605,10 +699,15 @@ export abstract class User {
       }
 
       const mailResponse = await MailGun.sendResetPasswordTemplate(
-        findWPUser.email,
-        findWPUser.firstName,
-        findWPUser.lastName,
-        User.Utils.getProfileLink(request, findWPUser.databaseId.toString()),
+        {
+          to: findWPUser.email,
+          firstname: findWPUser.firstName,
+          lastname: findWPUser.lastName,
+          profileLink: User.Utils.getProfileLink(
+            request,
+            findWPUser.databaseId.toString(),
+          ),
+        },
         code,
         User.Utils.getResetPasswordLink(request, findWPUser.email, code),
       );
@@ -694,10 +793,15 @@ export abstract class User {
       }
 
       const emailResult = MailGun.sendEmailConfirmationTemplate(
-        findWPUser.userFields.changeemail.newEmail,
-        findWPUser.firstName,
-        findWPUser.lastName,
-        User.Utils.getProfileLink(request, findWPUser.databaseId.toString()),
+        {
+          to: findWPUser.userFields.changeemail.newEmail,
+          firstname: findWPUser.firstName,
+          lastname: findWPUser.lastName,
+          profileLink: User.Utils.getProfileLink(
+            request,
+            findWPUser.databaseId.toString(),
+          ),
+        },
         User.Utils.getConfirmEmailChangeLink(
           request,
           findWPUser.email,
@@ -1838,19 +1942,27 @@ export abstract class User {
                   settingValue_KeyKey as keyof iWP_NotificationSettings_Restore
                 ];
 
+              const notificationName = User.Utils.pepareNotificationNameForWP(
+                category,
+                setting,
+              );
               if (
-                !notificationTypes.includes(
-                  User.Utils.pepareNotificationNameForWP(category, setting),
-                )
+                !Array.isArray(notificationTypes) ||
+                !notificationTypes.includes(notificationName)
               ) {
                 (settings[categoryKey][settingKey][
                   settingValue_KeyKey
                 ] as boolean) = false;
+                // console.log(notificationName, settingValue_KeyKey, "false");
+              } else {
+                // console.log(notificationName, settingValue_KeyKey, "true");
               }
             }
           }
         }
       }
+      // console.log("settings", settings);
+
       return settings;
     }
 
@@ -1917,19 +2029,33 @@ function transformUser(
     user.userFields &&
     typeof user.userFields === "object"
   ) {
-    const migratedFields = {
-      notificationSettings: {},
+    const migratedFields: {
+      siteNotifications: string[];
+      pushNotifications: string[];
+      emailNotifications: string[];
+    } = {
       siteNotifications: [],
       pushNotifications: [],
       emailNotifications: [],
-      isDeleted: false,
     };
+
+    const userFields = user.userFields as { [key: string]: unknown };
+    for (const key in migratedFields) {
+      if (key in userFields) {
+        const migratedValue = userFields[key];
+        if (Array.isArray(migratedValue)) {
+          migratedFields[key as keyof typeof migratedFields] =
+            _.cloneDeep(migratedValue);
+          // userFields[key] = undefined;
+        }
+      }
+    }
 
     user.userFields.notificationSettings =
       User.Utils.restoreNotificationSettingsFromWP({
-        siteNotifications: migratedFields.siteNotifications || [],
-        pushNotifications: migratedFields.pushNotifications || [],
-        emailNotifications: migratedFields.emailNotifications || [],
+        siteNotifications: migratedFields.siteNotifications,
+        pushNotifications: migratedFields.pushNotifications,
+        emailNotifications: migratedFields.emailNotifications,
       });
 
     user.userFields.isDeleted = false;

@@ -12,6 +12,7 @@ export type iWP_Communites_Pagination = iWP_Communites & iGraphQLPageInfo;
 
 const COMMUNITY_QUERY_FIELDS = (userId: string): string => `
 databaseId
+status
 title
 featuredImage {
   node {
@@ -40,8 +41,8 @@ export abstract class Community {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.community) as iWP_Community | null;
+        (response) => {
+          return response.data.community as iWP_Community | null;
         },
       );
     }
@@ -64,9 +65,8 @@ export abstract class Community {
             }
           }
         `,
-        async (response) => {
-          return (await response.data
-            .communities) as iWP_Communites_Pagination | null;
+        (response) => {
+          return response.data.communities as iWP_Communites_Pagination | null;
         },
       );
     }
@@ -92,9 +92,8 @@ export abstract class Community {
             }
           }
         `,
-        async (response) => {
-          return (await response.data
-            .communities) as iWP_Communites_Pagination | null;
+        (response) => {
+          return response.data.communities as iWP_Communites_Pagination | null;
         },
       );
     }

@@ -36,6 +36,9 @@ import MessagesManager from "./components/Managers/MessagesManager";
 import _ from "lodash";
 import { useEmojiMart } from "./utilities/hooks/useEmojiMart";
 import { ErrorPage } from "./components/Pages/ErrorPage";
+import { NotificationControl } from "./controllers/notification.control";
+import NotificationUnreadManager from "./components/Managers/Notification/NotificationUnreadManager";
+import OnlineManager from "./components/Managers/OnlineManager";
 
 export const meta: MetaFunction = () => {
   return [
@@ -57,7 +60,7 @@ export const meta: MetaFunction = () => {
 
 export const links: LinksFunction = () => {
   return [
-    { rel: "icon", href: "favicon.ico" },
+    { rel: "icon", href: "/favicon.ico" },
     { rel: "apple-touch-icon", href: "/assets/apple-touch-icon.png" },
     { rel: "icon", href: "/assets/favicon-32x32.png" },
     { rel: "icon", href: "/assets/favicon-16x16.png" },
@@ -98,6 +101,10 @@ const head = (
           src={`https://www.googletagmanager.com/gtag/js?id=G-SF1YS24HHS`}
         ></script>
         <script
+          async
+          src={`https://cdn.onesignal.com/sdks/OneSignalSDK.js`}
+        ></script>
+        <script
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
@@ -110,6 +117,46 @@ const head = (
         ></script>
       </>
     )}
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          window.CHW = {
+            Mobiloud: {
+              isReady: false,
+              nativeFunctions: undefined,
+            },
+          };
+
+          // Check if the user agent matches the app's user agent
+          const isApp = navigator.userAgent.toLowerCase().indexOf("canvas") > -1;
+
+          // Add the event listener that will trigger once the native functions are ready to be used
+          window.addEventListener(
+            "message",
+            (event) => {
+              runNativeFunctions(event);
+            },
+            false,
+          );
+
+          // Run when the event listener is triggered
+          function runNativeFunctions(event) {
+            try {
+              if (isApp) {
+                if (event.data && event.data == "nativeFunctionsLoaded") {
+                  window.CHW.Mobiloud = {
+                    isReady: true,
+                    nativeFunctions: window.nativeFunctions,
+                  };
+                }
+              }
+            } catch (ex) {
+              console.error("Error in runNativeFunctions", ex);
+            }
+          }
+        `,
+      }}
+    ></script>
     <meta charSet="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <Meta />
@@ -137,8 +184,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
       appContext.MessagesManager.unreadIds = messagesIds;
     }
 
-    appContext.User = user;
-    appContext.UploadKeys = User.Utils.getUploadKeys(userToken);
+    const notificationIds = await NotificationControl.API.getUnreadByUser(
+      user.databaseId,
+      0,
+      100,
+    );
+    if (notificationIds && !(notificationIds instanceof Error)) {
+      appContext.NotificationManager.unreadIds =
+        notificationIds.notifications.map((n) => n.id);
+    }
+
+    appContext.User.user = user;
+    appContext.UploadKeys.uploadKeys = User.Utils.getUploadKeys(userToken);
   } else {
     if (appContext.User !== undefined) {
       /***
@@ -146,7 +203,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
        * in the defaultAppContext.User
        * even though it is it's own object.
        */
-      appContext.User = undefined;
+      appContext.User.user = undefined;
     }
   }
 
@@ -157,19 +214,48 @@ export default function App() {
   const { appContext } = useLoaderData() as { appContext: iAppContext };
   const { EmojiMartMobile } = useEmojiMart();
 
-  const [appContextState, setAppContextState] = useState(appContext);
+  const [user, setUser] = useState(appContext.User.user);
+  const [uploadKeys, setUploadKeys] = useState(
+    appContext.UploadKeys.uploadKeys,
+  );
+  const [uploadManager, setUploadManager] = useState(
+    appContext.UploadManager.uploadManager,
+  );
+  const [notificationManager, setNotificationManager] = useState(
+    appContext.NotificationManager.notificationManager,
+  );
+  const [messagesManager, setMessagesManager] = useState(
+    appContext.MessagesManager.unreadIds,
+  );
+  const [notificationUnreadManager, setNotificationUnreadManager] = useState(
+    appContext.NotificationManager.unreadIds,
+  );
 
   useEffect(() => {
-    if (!_.isEqual(appContext.User, appContextState.User)) {
-      console.log("User changed");
+    if (!_.isEqual(appContext.User.user, user)) {
+      if (appContext.User.user) {
+        setUploadKeys(appContext.UploadKeys.uploadKeys);
+        setMessagesManager(appContext.MessagesManager.unreadIds);
+        setNotificationUnreadManager(appContext.NotificationManager.unreadIds);
 
-      setAppContextState({
-        ...appContextState,
-        User: appContext.User,
-        MessagesManager: appContext.MessagesManager,
-      });
+        // tag the user device with the user email on OneSignal
+        if (window.CHW.Mobiloud.isReady) {
+          window.CHW.Mobiloud.nativeFunctions?.onesignalSetExternalUserId(
+            appContext.User.user.email,
+          );
+          window.CHW.Mobiloud.nativeFunctions?.onesignalSetEmail(
+            appContext.User.user.email,
+          );
+        }
+      } else {
+        setUploadKeys(defaultAppContext.UploadKeys.uploadKeys);
+        setMessagesManager([]);
+        setNotificationManager([]);
+        setNotificationUnreadManager([]);
+      }
+      setUser(appContext.User.user);
     }
-  }, [appContext, appContextState]);
+  }, [appContext, user]);
 
   return (
     <html lang="en" className="h-full">
@@ -177,18 +263,48 @@ export default function App() {
       <body className="h-full">
         <AppContext.Provider
           value={{
-            appContext: appContextState,
-            setAppContext: (appContext: iAppContext, fullReplace?: boolean) => {
-              if (fullReplace) {
-                setAppContextState(appContext);
-              } else {
-                setAppContextState((prev) => {
-                  return {
-                    ...prev,
-                    ...appContext,
-                  };
-                });
-              }
+            User: {
+              user,
+              set: setUser,
+            },
+            UploadKeys: {
+              uploadKeys,
+              set: setUploadKeys,
+            },
+            UploadManager: {
+              uploadManager,
+              set: setUploadManager,
+            },
+            NotificationManager: {
+              notificationManager,
+              unreadIds: notificationUnreadManager,
+              setNotifications: setNotificationManager,
+              addNotification: (notification) => {
+                setNotificationManager((prev) => [...prev, notification]);
+              },
+              removeNotification: (notification) => {
+                if (typeof notification === "number") {
+                  setNotificationManager((prev) =>
+                    prev.filter((_, index) => index !== notification),
+                  );
+                  return;
+                } else {
+                  setNotificationManager((prev) =>
+                    prev.filter((n) => !_.isEqual(n, notification)),
+                  );
+                }
+              },
+              setUnreadIds: setNotificationUnreadManager,
+              addUnreadId: (unreadId) => {
+                setNotificationUnreadManager((prev) => [...prev, unreadId]);
+              },
+            },
+            MessagesManager: {
+              unreadIds: messagesManager,
+              setUnreadIds: setMessagesManager,
+              addUnreadId: (unreadId) => {
+                setMessagesManager((prev) => [...prev, unreadId]);
+              },
             },
           }}
         >
@@ -198,6 +314,8 @@ export default function App() {
           <LiveReload />
           <MessagesManager />
           <NotificationManager />
+          <NotificationUnreadManager />
+          <OnlineManager />
           <UploadManager />
           <div id="portal">
             <EmojiMartMobile />
@@ -210,6 +328,11 @@ export default function App() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  const [currentUrl, setCurrentUrl] = useState("Unable to get current URL");
+
+  useEffect(() => {
+    setCurrentUrl(window.location.href);
+  }, []);
 
   const getTitle = (): string => {
     if (isRouteErrorResponse(error)) {
@@ -259,7 +382,7 @@ export function ErrorBoundary() {
                     support team.
                   </p>
                   <p>
-                    Current URL: <b>{window.location.href}</b>
+                    Current URL: <b>{currentUrl}</b>
                   </p>
                   <pre className="bg-[#bf5540] bg-opacity-10 p-8 text-left text-red-600">
                     {error.stack || error.message}

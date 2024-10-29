@@ -49,8 +49,8 @@ export abstract class Message {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.message) as iWP_Message | null;
+        (response) => {
+          return response.data.message as iWP_Message | null;
         },
       );
     }
@@ -81,9 +81,8 @@ export abstract class Message {
           }
         }
         `,
-        async (response) => {
-          return (await response.data
-            .messages) as iWP_Messages_Pagination | null;
+        (response) => {
+          return response.data.messages as iWP_Messages_Pagination | null;
         },
       );
     }

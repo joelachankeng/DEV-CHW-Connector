@@ -1,7 +1,16 @@
+export type iWP_Status =
+  | "publish"
+  | "future"
+  | "draft"
+  | "pending"
+  | "private"
+  | "trash";
+
 export type iWP_Post = {
   databaseId: number;
   title: string;
   date: string;
+  status: iWP_Status;
   author: {
     node: {
       databaseId: number;
@@ -80,6 +89,7 @@ export type iWP_Posts = {
 
 export type iWP_Comment = {
   databaseId: number;
+  status: iWP_Status;
   createdDate: string;
   modifiedDate?: string;
   totalReplies: number;

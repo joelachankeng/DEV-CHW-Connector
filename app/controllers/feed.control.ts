@@ -15,6 +15,9 @@ import type {
 } from "~/models/post.model";
 import type { iMutationResponse } from "~/models/appContext.model";
 
+export type iCreatePost = iMutationResponse & {
+  post?: iWP_Post;
+};
 export type iCreatePostComment = iMutationResponse & {
   comment?: iWP_Comment;
 };
@@ -26,6 +29,7 @@ const POST_QUERY_FIELDS = (userId: string): string => `
   databaseId
   title
   date
+  status
   author {
     node {
       databaseId
@@ -102,6 +106,7 @@ const POST_QUERY_FIELDS = (userId: string): string => `
 `;
 const COMMENT_QUERY_FIELDS = (userId: string): string => `
   databaseId
+  status
   createdDate
   modifiedDate
   totalReplies
@@ -133,8 +138,8 @@ export abstract class Feed {
             }
           }
         `,
-          async (response) => {
-            return transformPost(await response.data.post) as iWP_Post | null;
+          (response) => {
+            return transformPost(response.data.post) as iWP_Post | null;
           },
         );
       }
@@ -166,9 +171,8 @@ export abstract class Feed {
             }
           }
         `,
-          async (response) => {
-            const all = (await response.data
-              .posts) as iWP_Posts_Pagination | null;
+          (response) => {
+            const all = response.data.posts as iWP_Posts_Pagination | null;
             if (!all) return all;
             return {
               nodes: all.nodes
@@ -199,8 +203,8 @@ export abstract class Feed {
             }
           }
         `,
-          async (response) => {
-            return (await response.data.posts) as iWP_Posts | null;
+          (response) => {
+            return response.data.posts as iWP_Posts | null;
           },
         );
       }
@@ -285,9 +289,9 @@ export abstract class Feed {
             }
           }
         `,
-          async (response) => {
-            return (await response.data
-              .postReactionsUsers) as iWP_Posts_EmojisUser | null;
+          (response) => {
+            return response.data
+              .postReactionsUsers as iWP_Posts_EmojisUser | null;
           },
         );
       }
@@ -296,10 +300,16 @@ export abstract class Feed {
         userId: string,
         postId: string,
         emojiId: string,
+        emojiIcon: string,
       ): Promise<string | Error> {
         return await GraphQL.mutate(gql`
         mutation MyMutation {
-          userReactPost(input: { postId: ${postId}, userId: ${userId}, emojiId: "${emojiId}" }) {
+          userReactPost(input: { 
+            postId: ${postId},
+            userId: ${userId},
+            emojiId: "${emojiId}" 
+            emojiIcon: "${emojiIcon}"
+          }) {
             clientMutationId
             message
             success
@@ -344,7 +354,7 @@ export abstract class Feed {
         groupType: string,
         post: string,
         poster: iWP_Post["postFields"]["poster"] = "USER",
-      ): Promise<string | Error> {
+      ): Promise<iCreatePost | Error> {
         const post64 = btoa(encodeURIComponent(post)); // Encode to base64 to avoid special characters for GraphQL
         return await GraphQL.mutate(gql`
         mutation MyMutation {
@@ -358,6 +368,9 @@ export abstract class Feed {
             clientMutationId
             message
             success
+            post {
+              ${POST_QUERY_FIELDS(userId)}
+            }
           }
         }
       `);
@@ -389,8 +402,8 @@ export abstract class Feed {
             }
           }
         `,
-          async (response) => {
-            return (await response.data.postComment) as iWP_Comment | null;
+          (response) => {
+            return response.data.postComment as iWP_Comment | null;
           },
         );
       }
@@ -419,9 +432,8 @@ export abstract class Feed {
             }
           }
           `,
-          async (response) => {
-            return (await response.data
-              .postComments) as iWP_Comments_Pagination | null;
+          (response) => {
+            return response.data.postComments as iWP_Comments_Pagination | null;
           },
         );
       }

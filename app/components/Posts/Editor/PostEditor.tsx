@@ -86,7 +86,7 @@ function PostEditorComponent({
   onChange,
   propSetter,
 }: iPostEditorProps) {
-  const { appContext } = useContext(AppContext);
+  const { User, UploadKeys } = useContext(AppContext);
   const { EmojiMart } = useEmojiMart();
 
   const [isMounted, setIsMounted] = useState(false);
@@ -210,14 +210,14 @@ function PostEditorComponent({
           "relative z-10 w-full transition-all duration-300 ease-in-out",
         )}
         editorToolsConfig={{
-          authorization: appContext.UploadKeys?.authorization,
+          authorization: UploadKeys.uploadKeys?.authorization,
           upload: {
             filterUrl: (toolName) => {
               if (uploadEvents?.filterUrl) {
                 const newUrl = uploadEvents.filterUrl(toolName);
                 if (newUrl) return newUrl;
               }
-              return appContext.UploadKeys?.uploadUrl;
+              return UploadKeys.uploadKeys?.uploadUrl;
             },
             onBeforeUpload: (toolName, file) => {
               postEditorFiles.current.push({
@@ -253,7 +253,7 @@ function PostEditorComponent({
     ),
 
     [
-      appContext.UploadKeys,
+      UploadKeys.uploadKeys,
       editorHolderId,
       editorPlaceholder,
       editorRef,
@@ -358,7 +358,7 @@ function PostEditorComponent({
         }}
       >
         <div className="relative min-h-[2rem] w-full">
-          {appContext.User ? (
+          {User.user ? (
             <>
               {isMounted && (
                 <ClientOnly fallback={<></>}>
@@ -403,7 +403,7 @@ function PostEditorComponent({
             "z-20 flex items-center justify-between gap-5 transition-all duration-300 ease-in-out",
           )}
         >
-          {appContext.User ? (
+          {User.user ? (
             <>
               <div className="flex items-center gap-5">
                 <Tooltip id={`tooltip-editor-${editorHolderId}`} />

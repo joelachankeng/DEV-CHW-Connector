@@ -29,6 +29,7 @@ import InfoSideBarGroupTemplate, {
 import { Community } from "~/controllers/community.control";
 import type { iGenericError } from "~/models/appContext.model";
 import { ErrorPageGeneric } from "~/components/Pages/ErrorPage";
+import { UserPublic } from "~/controllers/user.control.public";
 
 type iLoaderData = {
   alert?: iWP_PublicHealthAlert;
@@ -50,10 +51,7 @@ export const loader: LoaderFunction = async ({
   const paramId = params["*"];
   const postId = parseInt(paramId ?? "-1");
 
-  const post = await Feed.API.Post.getPost(
-    userId.toString(),
-    postId.toString(),
-  );
+  let post = await Feed.API.Post.getPost(userId.toString(), postId.toString());
 
   if (post && !(post instanceof Error)) {
     if ("network" in post.postFields && post.postFields.network) {
@@ -77,6 +75,15 @@ export const loader: LoaderFunction = async ({
         group = community;
       }
     }
+
+    if (post.status !== "publish") {
+      if (
+        !(getUser instanceof Error) &&
+        UserPublic.Utils.userIsAdmin(getUser) === false
+      ) {
+        post = new Error("Post not found");
+      }
+    }
   }
 
   let alert: iWP_PublicHealthAlert | undefined = undefined;
@@ -96,7 +103,7 @@ export const loader: LoaderFunction = async ({
   };
 };
 export default function CHWNetworkSingle() {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const { alert, group, post } = useLoaderData<iLoaderData>();
 

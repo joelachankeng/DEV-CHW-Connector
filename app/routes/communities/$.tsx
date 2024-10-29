@@ -25,6 +25,7 @@ import PostAddNew from "~/components/Posts/PostAddNew";
 import { json, useLoaderData, useOutletContext } from "@remix-run/react";
 import { ErrorComponent } from "~/components/Pages/ErrorPage";
 import { getUserSessionToken } from "~/servers/userSession.server";
+import { UserPublic } from "~/controllers/user.control.public";
 
 const sortByOptions = ["Recent", "Popular"];
 const sortByOptionsMap = sortByOptions.map((option) => ({
@@ -50,10 +51,21 @@ export const loader: LoaderFunction = async ({ request, params }) => {
 
   const communityId = parseInt(paramId ?? "-1");
 
-  const community = await Community.API.get(
+  let community = await Community.API.get(
     userId.toString(),
     communityId.toString(),
   );
+
+  if (!(community instanceof Error) && community) {
+    if (community.status !== "publish") {
+      if (
+        !(getUser instanceof Error) &&
+        UserPublic.Utils.userIsAdmin(getUser) === false
+      ) {
+        community = new Error("Community not found");
+      }
+    }
+  }
 
   return json<iLoaderData>({
     community:

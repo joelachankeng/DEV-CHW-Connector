@@ -10,6 +10,12 @@ import USA_States from "~/utilities/US-states.json";
 
 export abstract class UserPublic {
   public static Utils = class {
+    public static userIsAdmin(user: iWP_User | undefined): boolean {
+      if (!user) return false;
+      const isAdmin = user.roles.nodes.find((n) => n.name === USER_ROLES.ADMIN);
+      return isAdmin ? true : false;
+    }
+
     public static userCanPostInGroup(
       user: iWP_User | undefined,
       groupId: number,

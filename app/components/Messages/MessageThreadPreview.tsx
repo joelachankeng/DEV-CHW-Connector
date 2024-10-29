@@ -3,7 +3,7 @@ import { Link } from "@remix-run/react";
 import { classNames } from "~/utilities/main";
 import type { iContextMenuProps } from "../ContextMenu";
 import ContextMenu from "../ContextMenu";
-import { MessageNotificationCount } from "../Header/Header";
+import { NotificationCount } from "../Header/Header";
 import Avatar from "../User/Avatar";
 import { DateTime } from "luxon";
 
@@ -84,7 +84,7 @@ export default function MessageThreadPreview({
           items={contextMenu}
         />
         {isUnRead && unReadcount !== undefined && (
-          <MessageNotificationCount
+          <NotificationCount
             className="!relative !bottom-0 !left-0 !right-0 !top-0"
             count={unReadcount}
           />

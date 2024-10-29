@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Message } from "~/controllers/message.control";
+import { NotificationControl } from "~/controllers/notification.control";
 import { getJWTUserDataFromSession } from "~/servers/userSession.server";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -30,6 +31,12 @@ export async function action({ request }: ActionFunctionArgs) {
   if (result instanceof Error) {
     return json({ error: result.message }, { status: 400 });
   }
+
+  await NotificationControl.API.Automations.send(
+    request,
+    result.messagePost?.databaseId.toString() || "",
+    "message",
+  );
 
   return json(result);
 }

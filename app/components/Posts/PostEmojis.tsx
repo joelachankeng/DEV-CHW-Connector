@@ -26,7 +26,7 @@ export default function PostEmojis({
   totalEmojis: iWP_Post["postFields"]["totalEmojis"];
   onChange: (totalEmojis: iWP_Post["postFields"]["totalEmojis"]) => void;
 }) {
-  const { appContext, setAppContext } = useContext(AppContext);
+  const { User, NotificationManager } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [showModal, setShowModal] = useState(false);
@@ -43,25 +43,27 @@ export default function PostEmojis({
 
   useEffect(() => {
     setUpdatedTotalEmojis(totalEmojis);
-    console.log("userCount changed", totalEmojis.usersCount);
+    // console.log("userCount changed", totalEmojis.usersCount);
   }, [totalEmojis.usersCount]);
 
   const isActiveEmoji = (emojiId: string): boolean => {
-    const findUserEmoji = hasUserReacted(appContext.User, updatedTotalEmojis);
+    const findUserEmoji = hasUserReacted(User.user, updatedTotalEmojis);
     if (!findUserEmoji) return false;
 
     return findUserEmoji.emojiId === emojiId;
   };
 
   const handleReactionClick = (emojiId: string) => {
-    const result = calcUserUpdateReaction(appContext, emojiId, totalEmojis);
+    const result = calcUserUpdateReaction(
+      User,
+      NotificationManager,
+      emojiId,
+      totalEmojis,
+    );
     if (!result) return;
 
     if ("time" in result) {
-      setAppContext({
-        ...appContext,
-        NotificationManager: [...appContext.NotificationManager, result],
-      });
+      NotificationManager.addNotification(result);
       return;
     }
 
@@ -84,17 +86,11 @@ export default function PostEmojis({
     iGenericSuccess | iGenericError
   >("/api/post/react", (data) => {
     if ("error" in data) {
-      const errorNotification = sendNotificationError(appContext);
+      const errorNotification = sendNotificationError(NotificationManager);
       setUpdatedTotalEmojis(totalEmojis);
       onChange(totalEmojis);
       if (errorNotification)
-        setAppContext({
-          ...appContext,
-          NotificationManager: [
-            ...appContext.NotificationManager,
-            errorNotification,
-          ],
-        });
+        NotificationManager.addNotification(errorNotification);
     }
   });
 
@@ -131,7 +127,7 @@ export default function PostEmojis({
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
+                if (!User.user) return navigate(APP_ROUTES.LOGIN);
                 handleReactionClick(emoji.emojiId);
               }}
               data-tooltip-id={`tooltip-add-reaction-${postId}`}
@@ -158,7 +154,7 @@ export default function PostEmojis({
 }
 
 function sendNotificationError(
-  appContext: iAppContext,
+  notificationManager: iAppContext["NotificationManager"],
 ): iNotificationItem_General | undefined {
   const errorNotification: iNotificationItem_General = {
     type: "error",
@@ -167,8 +163,8 @@ function sendNotificationError(
     time: DateTime.now().toISO(),
   };
 
-  const lastNotification =
-    appContext.NotificationManager[appContext.NotificationManager.length - 1];
+  const notifications = notificationManager.notificationManager;
+  const lastNotification = notifications[notifications.length - 1];
 
   if (
     lastNotification?.message === errorNotification.message &&
@@ -191,7 +187,8 @@ function hasUserReacted(
 }
 
 export function calcUserUpdateReaction(
-  appContext: iAppContext,
+  userContext: iAppContext["User"],
+  NotificationManager: iAppContext["NotificationManager"],
   emojiId: string,
   totalEmojis: iWP_Post["postFields"]["totalEmojis"],
 ):
@@ -201,9 +198,9 @@ export function calcUserUpdateReaction(
     }
   | iNotificationItem_General
   | undefined {
-  const user = appContext.User;
+  const user = userContext.user;
   if (!user) {
-    return sendNotificationError(appContext);
+    return sendNotificationError(NotificationManager);
   }
 
   const userReaction = hasUserReacted(user, totalEmojis);
@@ -293,11 +290,10 @@ export function calcUserUpdateReaction(
       users: [
         ...(newTotalEmojis.users || []),
         {
-          userId: appContext.User?.databaseId || 0,
+          userId: user?.databaseId || 0,
           emojiId,
-          avatar: appContext.User?.avatar.url || "",
-          name:
-            `${appContext.User?.firstName} ${appContext.User?.lastName}` || "",
+          avatar: user?.avatar.url || "",
+          name: `${user?.firstName} ${user?.lastName}` || "",
         },
       ],
       collection: newTotalEmojis.collection?.map((emoji) => {

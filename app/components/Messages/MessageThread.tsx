@@ -10,7 +10,12 @@ import React, {
 } from "react";
 import Avatar from "~/components/User/Avatar";
 import { APP_ROUTES } from "~/constants";
-import { classNames, isToday, isYesterday } from "~/utilities/main";
+import {
+  calcEditorData,
+  classNames,
+  isToday,
+  isYesterday,
+} from "~/utilities/main";
 import type EditorJS from "@editorjs/editorjs";
 import { AppContext } from "~/contexts/appContext";
 import type { iPublicUser } from "~/controllers/user.control";
@@ -21,7 +26,6 @@ import type { iWP_Message } from "~/models/message.model";
 import { DateTime } from "luxon";
 import { ClientOnly } from "remix-utils/client-only";
 import { EditorBlock } from "~/components/Editor/EditorBlock";
-import { calcEditorData } from "~/components/Posts/Post";
 import _ from "lodash";
 import { usePagination } from "~/utilities/hooks/usePagination";
 import LoadingSpinner from "~/components/Loading/LoadingSpinner";
@@ -45,7 +49,7 @@ export default function MessageThread({
   onAfterMessageFetch?: (data: iWP_Messages_Pagination | iGenericError) => void;
   propSetter?: MutableRefObject<iMessageThreadPropSetter>;
 }) {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const [messagesGroups, setMessagesGroups] = useState<iMessageGroup[]>(
     organizeMessagesByDate(initMessages(messages)),
@@ -289,10 +293,10 @@ export default function MessageThread({
             messagesGroups,
           );
 
-          if (getMessage && appContext.User?.databaseId) {
+          if (getMessage && User.user?.databaseId) {
             if (
               getMessage.messageFields.receiverId.toString() !==
-              appContext.User.databaseId.toString()
+              User.user.databaseId.toString()
             ) {
               // the message is not for the current user
               return;
@@ -312,11 +316,11 @@ export default function MessageThread({
     return () => {
       observer.current?.disconnect();
     };
-  }, [appContext.User?.databaseId, messagesGroups]);
+  }, [User.user?.databaseId, messagesGroups]);
 
   useEffect(() => {
     const interval = setInterval(function () {
-      if (!appContext.User) return;
+      if (!User.user) return;
       if (!user || "error" in user) return;
       if (isSubmitting) return;
       if (isFetchingNewMessages.current) return;
@@ -333,7 +337,7 @@ export default function MessageThread({
     }, 1000);
     return () => clearInterval(interval);
   }, [
-    appContext.User,
+    User.user,
     fetchNewMessages,
     isSubmitting,
     messageFetchState,
@@ -432,7 +436,7 @@ export default function MessageThread({
                           className={classNames(
                             "mb-2.5 flex w-full items-center gap-5",
                             singleMessage.author.node.databaseId ===
-                              appContext.User?.databaseId
+                              User.user?.databaseId
                               ? "flex-row-reverse text-right"
                               : "",
                           )}
@@ -467,7 +471,7 @@ export default function MessageThread({
                           className={classNames(
                             "flex w-full flex-col",
                             singleMessage.author.node.databaseId ===
-                              appContext.User?.databaseId
+                              User.user?.databaseId
                               ? "mr-12 items-end self-end"
                               : "ml-12 items-start self-start",
                           )}
@@ -484,7 +488,7 @@ export default function MessageThread({
                               "max-w-[70%] rounded-[1.25rem] px-5 py-2.5",
                               "font-normal text-[#032525]",
                               singleMessage.author.node.databaseId ===
-                                appContext.User?.databaseId
+                                User.user?.databaseId
                                 ? "self-end bg-[#e5e3ff]"
                                 : "bg-chw-cream-01",
                             )}
@@ -500,7 +504,7 @@ export default function MessageThread({
                             </ClientOnly>
                           </div>
                           {/* {singleMessage.author.node.databaseId !==
-                            appContext.User?.databaseId && (
+                            User.user?.databaseId && (
                             <button
                               type="button"
                               className={
@@ -765,6 +769,7 @@ function createRandomMessage(): iWP_Message {
   return {
     databaseId: parseInt(date.toFormat("HHmmss")),
     date: "2024-09-09T06:44:42",
+    status: "publish",
     author: {
       node: {
         databaseId: 1,

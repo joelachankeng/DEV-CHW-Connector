@@ -39,13 +39,17 @@ export abstract class GraphQL {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     GQLQuery: any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    returnFunction: (response: ApolloQueryResult<any>) => Promise<Type>,
+    returnFunction: (response: ApolloQueryResult<any>) => Promise<Type> | Type,
   ): Promise<Type | Error> {
     try {
       const response = await client.query({
         query: GQLQuery,
       });
-      return await returnFunction(response);
+      if (returnFunction.constructor.name === "AsyncFunction") {
+        return await returnFunction(response);
+      } else {
+        return returnFunction(response);
+      }
     } catch (error: unknown) {
       if (error instanceof ApolloError) {
         const graphQLError = error?.graphQLErrors[0]?.message;

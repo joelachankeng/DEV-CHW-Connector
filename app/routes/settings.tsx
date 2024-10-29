@@ -51,7 +51,7 @@ const getTab = (path: string): iTab | undefined => {
 };
 
 export default function Settings() {
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
 
   const location = useLocation();
 
@@ -86,10 +86,10 @@ export default function Settings() {
             <div className="mt-28 max-md:mt-5">
               <div className="flex items-center gap-4">
                 <div className="h-[3.75rem] w-[3.75rem] min-w-[3.75rem]">
-                  {appContext.User?.avatar.url ? (
+                  {User.user?.avatar.url ? (
                     <Avatar
-                      src={appContext.User?.avatar.url}
-                      alt={`${appContext.User?.firstName} ${appContext.User?.lastName}`}
+                      src={User.user?.avatar.url}
+                      alt={`${User.user?.firstName} ${User.user?.lastName}`}
                     />
                   ) : (
                     <SVGAvatarTwo />
@@ -97,7 +97,7 @@ export default function Settings() {
                 </div>
                 <h1 className="text-[1.75rem] font-bold text-[#032525]">
                   <span className="break-all">
-                    {appContext.User?.firstName} {appContext.User?.lastName}
+                    {User.user?.firstName} {User.user?.lastName}
                   </span>
                   <span className="max-md:hidden">
                     {activeTab && (

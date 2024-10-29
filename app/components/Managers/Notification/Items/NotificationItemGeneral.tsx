@@ -15,7 +15,7 @@ export default function NotificationItemGeneral({
         className="flex w-auto items-center rounded-lg bg-white p-4 text-gray-500 shadow-md dark:bg-gray-800 dark:text-gray-400 max-md:border max-md:border-gray-200 max-md:shadow-2xl"
         role="alert"
       >
-        <div className="inline-flex h-10 w-10 min-w-[2.5rem] items-center justify-center">
+        <div className="inline-flex h-16 w-16 min-w-[4rem] items-center justify-center">
           {icon}
         </div>
         <div className="mx-3 text-sm font-normal text-black">{children}</div>

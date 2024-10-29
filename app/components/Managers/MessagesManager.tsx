@@ -4,11 +4,12 @@ import type { iGenericError } from "~/models/appContext.model";
 import type { iNotificationItem_UserInteraction } from "./Notification/NotificationItem";
 import type { iWP_Message } from "~/models/message.model";
 import { APP_ROUTES } from "~/constants";
-import { getParagraphTextFromEditorData } from "../Posts/Post";
 import axios from "axios";
+import { getParagraphTextFromEditorData } from "~/utilities/main";
+import { excerpts } from "~/utilities/excerpts";
 
 export default function MessagesManager() {
-  const { appContext, setAppContext } = useContext(AppContext);
+  const { User, MessagesManager, NotificationManager } = useContext(AppContext);
   const isFetching = useRef(false);
 
   const fetchAllUnreadMessages = useCallback(async (): Promise<
@@ -27,72 +28,68 @@ export default function MessagesManager() {
 
   const updateContext = useCallback(
     (data: iWP_Message[] | iGenericError) => {
-      if (Array.isArray(data)) {
-        const unreadIds = appContext.MessagesManager.unreadIds;
-        const newNotificationsMessages: iNotificationItem_UserInteraction[] =
-          [];
-        const newIds: number[] = [];
+      if (!Array.isArray(data)) return;
 
-        if (data.length === 0) {
-          if (unreadIds.length === 0) return;
-          setAppContext({
-            ...appContext,
-            MessagesManager: {
-              unreadIds: [],
-            },
-          });
-          return;
+      const unreadIds = MessagesManager.unreadIds;
+      const newNotificationsMessages: iNotificationItem_UserInteraction[] = [];
+      const newIds: number[] = [];
+
+      if (data.length === 0) {
+        if (unreadIds.length === 0) return;
+        MessagesManager.setUnreadIds([]);
+        return;
+      }
+
+      data.forEach((m) => {
+        if (unreadIds.includes(m.databaseId)) return;
+
+        newIds.push(m.databaseId);
+        newNotificationsMessages.push({
+          type: "message",
+          avatarURL: m.author.node.avatar.url,
+          userURL: `${APP_ROUTES.PROFILE}/${m.author.node.databaseId}`,
+          name: `${m.author.node.firstName} ${m.author.node.lastName}`,
+          actionType: "message",
+          contentURL: `${APP_ROUTES.MESSAGES}/${m.author.node.databaseId}`,
+          time: m.date,
+          message: excerpts(
+            getParagraphTextFromEditorData(m.messageFields.content),
+          ),
+        });
+      });
+
+      if (newIds.length === 0) {
+        if (data.length !== unreadIds.length) {
+          // this updates the count on the header as the user is reading the unread messages
+          MessagesManager.setUnreadIds(data.map((m) => m.databaseId));
         }
 
-        data.forEach((m) => {
-          if (unreadIds.includes(m.databaseId)) return;
+        return;
+      }
 
-          newIds.push(m.databaseId);
-          newNotificationsMessages.push({
-            type: "message",
-            avatarURL: m.author.node.avatar.url,
-            userURL: `${APP_ROUTES.PROFILE}/${m.author.node.databaseId}`,
-            name: `${m.author.node.firstName} ${m.author.node.lastName}`,
-            actionType: "message",
-            contentURL: `${APP_ROUTES.MESSAGES}/${m.author.node.databaseId}`,
-            time: m.date,
-            message: getParagraphTextFromEditorData(m.messageFields.content),
-          });
-        });
-
-        if (newIds.length === 0) {
-          if (data.length !== unreadIds.length) {
-            // this updates the count on the header as the user is reads the unread messages
-            setAppContext({
-              ...appContext,
-              MessagesManager: {
-                unreadIds: data.map((m) => m.databaseId),
-              },
+      MessagesManager.setUnreadIds(data.map((m) => m.databaseId));
+      if (!User.user) return console.error("User is not logged in");
+      if (
+        User.user.userFields.notificationSettings.Messaging["Direct Messages"]
+          .siteNotifications === true
+      ) {
+        if (
+          window.location.pathname.startsWith(APP_ROUTES.MESSAGES) === false
+        ) {
+          if (newNotificationsMessages.length > 0) {
+            newNotificationsMessages.forEach((n) => {
+              NotificationManager.addNotification(n);
             });
           }
-
-          return;
         }
-
-        setAppContext({
-          ...appContext,
-          MessagesManager: {
-            unreadIds: data.map((m) => m.databaseId),
-          },
-          ...(window.location.pathname.startsWith(APP_ROUTES.MESSAGES) ===
-            false &&
-            newNotificationsMessages.length > 0 && {
-              NotificationManager: [...newNotificationsMessages],
-            }),
-        });
       }
     },
-    [appContext, setAppContext],
+    [MessagesManager, NotificationManager, User.user],
   );
 
   useEffect(() => {
     const interval = setInterval(function () {
-      if (!appContext.User) return;
+      if (!User.user) return;
       if (isFetching.current) return;
 
       isFetching.current = true;
@@ -106,7 +103,7 @@ export default function MessagesManager() {
         });
     }, 1000);
     return () => clearInterval(interval);
-  }, [appContext.User, fetchAllUnreadMessages, updateContext]);
+  }, [User.user, fetchAllUnreadMessages, updateContext]);
 
   return (
     <>

@@ -1,9 +1,9 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { USER_ROLES } from "~/constants";
 import { CHWNetwork } from "~/controllers/CHWNetwork.control";
 import { Community } from "~/controllers/community.control";
 import { Feed } from "~/controllers/feed.control";
+import { NotificationControl } from "~/controllers/notification.control";
 import { User } from "~/controllers/user.control";
 import { UserPublic } from "~/controllers/user.control.public";
 import type { iWP_CHWNetwork } from "~/models/CHWNetwork.model";
@@ -93,6 +93,12 @@ export async function action({ request }: ActionFunctionArgs) {
   if (result instanceof Error) {
     return json({ error: result.message }, { status: 400 });
   }
+
+  await NotificationControl.API.Automations.send(
+    request,
+    result.post?.databaseId || -1,
+    "post",
+  );
 
   return json(result);
 }

@@ -15,6 +15,7 @@ export type iWP_CHWNetwork_Pagination = iWP_CHWNetworks & iGraphQLPageInfo;
 
 const CHWNETWORK_QUERY_FIELDS = (userId: string): string => `
 databaseId
+status
 title
 featuredImage {
   node {
@@ -33,7 +34,7 @@ export abstract class CHWNetwork {
     public static async get(
       userId: string,
       networkId: string,
-    ): Promise<iWP_CHWNetwork | null | Error> {
+    ): Promise<iWP_CHWNetwork | Error | null> {
       return await GraphQL.query<iWP_CHWNetwork | null>(
         gql`
          query MyQuery {
@@ -42,8 +43,8 @@ export abstract class CHWNetwork {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.cHWNetwork) as iWP_CHWNetwork | null;
+        (response) => {
+          return response.data.cHWNetwork as iWP_CHWNetwork | null;
         },
       );
     }
@@ -66,9 +67,8 @@ export abstract class CHWNetwork {
             }
           }
         `,
-        async (response) => {
-          return (await response.data
-            .cHWNetworks) as iWP_CHWNetwork_Pagination | null;
+        (response) => {
+          return response.data.cHWNetworks as iWP_CHWNetwork_Pagination | null;
         },
       );
     }
@@ -94,9 +94,8 @@ export abstract class CHWNetwork {
             }
           }
         `,
-        async (response) => {
-          return (await response.data
-            .cHWNetworks) as iWP_CHWNetwork_Pagination | null;
+        (response) => {
+          return response.data.cHWNetworks as iWP_CHWNetwork_Pagination | null;
         },
       );
     }

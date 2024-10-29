@@ -28,9 +28,9 @@ export abstract class ThemeOptions {
             }
           }
         `,
-        async (response) => {
-          return (await response.data.optionsThemeSettings
-            .themeSettingsField) as iThemeOptions_PublicHealthAlerts | null;
+        (response) => {
+          return response.data.optionsThemeSettings
+            .themeSettingsField as iThemeOptions_PublicHealthAlerts | null;
         },
       );
     }

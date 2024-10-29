@@ -1,6 +1,9 @@
+import type { iWP_Status } from "./post.model";
+
 export type iWP_Community = {
   databaseId: number;
   title: string;
+  status: iWP_Status;
   featuredImage: {
     node: {
       mediaItemUrl: string;

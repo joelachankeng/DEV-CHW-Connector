@@ -10,7 +10,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { DateTime } from "luxon";
 import { ClientOnly } from "remix-utils/client-only";
 import { EditorBlock } from "../Editor/EditorBlock";
-import type { OutputData } from "@editorjs/editorjs";
 import {
   useCallback,
   useContext,
@@ -21,7 +20,7 @@ import {
 } from "react";
 import type EditorJS from "@editorjs/editorjs";
 import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
-import { classNames } from "~/utilities/main";
+import { calcEditorData, classNames } from "~/utilities/main";
 import Avatar from "../User/Avatar";
 import { AppContext } from "~/contexts/appContext";
 import type { iNotificationItem_General } from "../Managers/Notification/NotificationItem";
@@ -48,9 +47,8 @@ import ModalNotification from "../Modals/ModalNotification";
 import { UserPublic } from "~/controllers/user.control.public";
 
 export default function Post({ post }: { post: iWP_Post }) {
-  const { appContext, setAppContext } = useContext(AppContext);
+  const { User, NotificationManager } = useContext(AppContext);
   const navigate = useNavigate();
-  const { NotificationManager } = appContext;
 
   const { EmojiMart, EmojiMartMobile } = useEmojiMart();
   const fetcher = useFetcher();
@@ -112,12 +110,7 @@ export default function Post({ post }: { post: iWP_Post }) {
               totalEmojis: post.postFields.totalEmojis,
             },
           }));
-
-          const newAppContext = {
-            ...appContext,
-            NotificationManager: [...NotificationManager, errorNotification],
-          };
-          setAppContext(newAppContext);
+          NotificationManager.addNotification(errorNotification);
         }
         break;
       case "COMMENT":
@@ -137,12 +130,7 @@ export default function Post({ post }: { post: iWP_Post }) {
               isSaved: post.postFields.isSaved,
             },
           }));
-
-          const newAppContext = {
-            ...appContext,
-            NotificationManager: [...NotificationManager, errorNotification],
-          };
-          setAppContext(newAppContext);
+          NotificationManager.addNotification(errorNotification);
         }
 
         break;
@@ -160,11 +148,7 @@ export default function Post({ post }: { post: iWP_Post }) {
             },
           }));
 
-          const newAppContext = {
-            ...appContext,
-            NotificationManager: [...NotificationManager, errorNotification],
-          };
-          setAppContext(newAppContext);
+          NotificationManager.addNotification(errorNotification);
         }
         break;
       case "DELETE":
@@ -172,11 +156,7 @@ export default function Post({ post }: { post: iWP_Post }) {
           errorNotification.message += ` delete post #${updatedPost.databaseId}. Please try again.`;
           setIsDeleted(false);
 
-          const newAppContext = {
-            ...appContext,
-            NotificationManager: [...NotificationManager, errorNotification],
-          };
-          setAppContext(newAppContext);
+          NotificationManager.addNotification(errorNotification);
         } else {
           setIsDeleted(true);
         }
@@ -211,7 +191,7 @@ export default function Post({ post }: { post: iWP_Post }) {
 
   const handleSavePost = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
+    if (!User.user) return navigate(APP_ROUTES.LOGIN);
     const formData = new FormData();
     formData.append("postId", updatedPost.databaseId.toString());
     formData.append(
@@ -298,7 +278,8 @@ export default function Post({ post }: { post: iWP_Post }) {
     setShowEmojiMart(false);
 
     const result = calcUserUpdateReaction(
-      appContext,
+      User,
+      NotificationManager,
       emoji.id,
       updatedPost.postFields.totalEmojis,
     );
@@ -306,10 +287,7 @@ export default function Post({ post }: { post: iWP_Post }) {
     if (!result) return;
 
     if ("time" in result) {
-      setAppContext({
-        ...appContext,
-        NotificationManager: [...appContext.NotificationManager, result],
-      });
+      NotificationManager.addNotification(result);
       return;
     }
 
@@ -326,6 +304,7 @@ export default function Post({ post }: { post: iWP_Post }) {
     formData.append("postId", updatedPost.databaseId.toString());
     formData.append("action", result.action);
     formData.append("emojiId", emoji.id);
+    formData.append("emojiIcon", emoji.native);
 
     fetcher.submit(formData, {
       method: "post",
@@ -394,7 +373,7 @@ export default function Post({ post }: { post: iWP_Post }) {
         },
       ],
     ];
-    if (UserPublic.Utils.userCanDeletePost(appContext.User, post)) {
+    if (UserPublic.Utils.userCanDeletePost(User.user, post)) {
       menuITtems.push([
         {
           element: (
@@ -716,7 +695,7 @@ export default function Post({ post }: { post: iWP_Post }) {
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
+                  if (!User.user) return navigate(APP_ROUTES.LOGIN);
                   if (window.innerWidth < 768) {
                     dispatchShowMobilePicker(updatedPost.databaseId.toString());
                   } else {
@@ -790,40 +769,4 @@ export default function Post({ post }: { post: iWP_Post }) {
       )}
     </>
   );
-}
-
-export function calcEditorData(editorSavedData: string): OutputData {
-  let editorData: OutputData = {
-    blocks: [],
-  };
-  try {
-    const convertedData = decodeURIComponent(atob(editorSavedData));
-    editorData = JSON.parse(convertedData) as OutputData;
-  } catch (error) {
-    editorData.blocks = [
-      {
-        type: "paragraph",
-        data: {
-          text: "An error occurred while trying to load this post.",
-        },
-      },
-    ];
-  }
-  return editorData as OutputData;
-}
-
-export function getParagraphTextFromEditorData(
-  editorSavedData: string,
-): string {
-  const editorData = calcEditorData(editorSavedData);
-  if (!editorData.blocks) return "";
-  if (editorData.blocks.length === 0) return "";
-
-  const paragraphBlock = editorData.blocks.find(
-    (block) => block.type === "paragraph",
-  );
-  if (paragraphBlock) {
-    return paragraphBlock.data.text;
-  }
-  return `[${editorData.blocks[0].type}]`;
 }

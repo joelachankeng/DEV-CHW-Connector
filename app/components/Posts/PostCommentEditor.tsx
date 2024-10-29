@@ -30,7 +30,7 @@ export default function PostCommentEditor({
 }) {
   const editorHolderId = `post-${postId}-commentParent-${parentId}-comment-editor`;
 
-  const { appContext } = useContext(AppContext);
+  const { User } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -110,7 +110,7 @@ export default function PostCommentEditor({
 
   const handleSubmitComment = useCallback(
     (_editor: EditorJS, blockData: OutputData["blocks"]) => {
-      if (!appContext.User) return navigate(APP_ROUTES.LOGIN);
+      if (!User.user) return navigate(APP_ROUTES.LOGIN);
       if (blockData == undefined || blockData.length == 0) return;
       if (!editorRef.current) return setErrorMessage(EDITOR_ERROR_MESSAGE);
 
@@ -127,7 +127,7 @@ export default function PostCommentEditor({
           setErrorMessage(EDITOR_ERROR_MESSAGE);
         });
     },
-    [appContext.User, navigate],
+    [User.user, navigate],
   );
 
   const createEditor = useMemo(
@@ -138,16 +138,16 @@ export default function PostCommentEditor({
         blockData={commentData.current}
         editorHolderId={editorHolderId}
         editorPlaceholder={
-          appContext.User ? "Add a comment..." : "Please log in to comment."
+          User.user ? "Add a comment..." : "Please log in to comment."
         }
         preventWindowClosingMessage="You have unsaved changes in your comment. Are you sure you want to close the window?"
-        submitTooltipText={appContext.User ? "Post Comment" : "Log In"}
+        submitTooltipText={User.user ? "Post Comment" : "Log In"}
         onSubmit={handleSubmitComment}
         onChange={(data) => handleDataOnChange(data)}
         propSetter={postEditorPropSetter}
       />
     ),
-    [editorHolderId, appContext.User, handleSubmitComment],
+    [editorHolderId, User.user, handleSubmitComment],
   );
 
   return (
@@ -165,13 +165,13 @@ export default function PostCommentEditor({
         >
           <div className="">
             <Link
-              to={`${APP_ROUTES.PROFILE}/${appContext.User?.databaseId}`}
+              to={`${APP_ROUTES.PROFILE}/${User.user?.databaseId}`}
               className="flex items-center gap-2"
             >
               <div className="h-10 w-10">
                 <Avatar
-                  src={appContext.User?.avatar.url}
-                  alt={`${appContext.User?.firstName} ${appContext.User?.lastName}`}
+                  src={User.user?.avatar.url}
+                  alt={`${User.user?.firstName} ${User.user?.lastName}`}
                 />
               </div>
             </Link>
