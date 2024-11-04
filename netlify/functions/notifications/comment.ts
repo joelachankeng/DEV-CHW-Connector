@@ -17,7 +17,7 @@ import { MailGun } from "~/controllers/mailgun.control";
 import { Feed } from "~/controllers/feed.control";
 import { NotificationControl } from "~/controllers/notification.control";
 import type { iWP_NotificationTypes } from "~/models/notifications.model";
-import type { iWP_Comment_Ancesstors } from "~/models/post.model";
+import type { iWP_Comment_Ancestors } from "~/models/post.model";
 import axios, { isAxiosError } from "axios";
 
 export default async function commentHandler(
@@ -210,14 +210,15 @@ export default async function commentHandler(
     `New ${isReply ? "Reply" : "Comment"}`;
 
   if (pushUsers.length > 0) {
-    const emails = pushUsers.map((m) => m.user_email);
+    let emails = pushUsers.map((m) => m.user_email);
+    emails =
+      process.env.NODE_ENV === "development"
+        ? ["jachankeng+1@hria.org"]
+        : emails;
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails:
-        process.env.NODE_ENV === "development"
-          ? ["jachankeng+1@hria.org"]
-          : emails,
+      emails: emails,
       headings: {
         en: groupName,
       },
@@ -229,6 +230,9 @@ export default async function commentHandler(
       contents: { en: excerpt },
       name: `Automated Push Notification for New Comment: ${comment.databaseId}`,
       url: fullUrl,
+      data: {
+        emails: emails.join(","),
+      },
     });
     if (result instanceof Error)
       console.error("An error occurred sending push notification", result);
@@ -239,7 +243,7 @@ export default async function commentHandler(
 
 const getCommentAncestors = async (
   id: number | string,
-): Promise<Error | iWP_Comment_Ancesstors[]> => {
+): Promise<Error | iWP_Comment_Ancestors[]> => {
   const url = `${process.env.WP_REST_URL}/comment/ancestors`;
 
   try {
@@ -248,7 +252,7 @@ const getCommentAncestors = async (
     formData.append("id", id.toString());
     const response = await axios.post(url, formData);
     if (response.data) {
-      return response.data.ancestors as iWP_Comment_Ancesstors[];
+      return response.data.ancestors as iWP_Comment_Ancestors[];
     }
   } catch (error: unknown) {
     if (isAxiosError(error)) {

@@ -19,10 +19,12 @@ import { useNavigate } from "@remix-run/react";
 
 export default function PostEmojis({
   postId,
+  postType = "POST",
   totalEmojis,
   onChange,
 }: {
   postId: number;
+  postType?: "POST" | "COMMENT";
   totalEmojis: iWP_Post["postFields"]["totalEmojis"];
   onChange: (totalEmojis: iWP_Post["postFields"]["totalEmojis"]) => void;
 }) {
@@ -84,7 +86,7 @@ export default function PostEmojis({
 
   const { submit: emojiFetchSubmit } = useAutoFetcher<
     iGenericSuccess | iGenericError
-  >("/api/post/react", (data) => {
+  >(`/api/${postType === "POST" ? "post" : "comment"}/react`, (data) => {
     if ("error" in data) {
       const errorNotification = sendNotificationError(NotificationManager);
       setUpdatedTotalEmojis(totalEmojis);

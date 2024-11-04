@@ -6,6 +6,15 @@ export type iWP_Status =
   | "private"
   | "trash";
 
+export type iWP_TotalEmojis = {
+  usersCount: number;
+  users?: iWP_Posts_EmojisUser[];
+  collection?: {
+    count: number;
+    emojiId: string;
+  }[];
+};
+
 export type iWP_Post = {
   databaseId: number;
   title: string;
@@ -36,14 +45,7 @@ export type iWP_Post = {
       count: number;
       userHasShared: boolean;
     };
-    totalEmojis: {
-      usersCount: number;
-      users?: iWP_Posts_EmojisUser[];
-      collection?: {
-        count: number;
-        emojiId: string;
-      }[];
-    };
+    totalEmojis: iWP_TotalEmojis;
     network?: {
       node: {
         databaseId: number;
@@ -105,6 +107,7 @@ export type iWP_Comment = {
       lastName: string;
       avatarUrl: string;
     };
+    totalEmojis: iWP_TotalEmojis;
   };
 };
 
@@ -114,7 +117,7 @@ export type iWP_Comments = {
 
 export type iWP_Post_Group_Type = "NETWORK" | "COMMUNITY";
 
-export type iWP_Comment_Ancesstors = {
+export type iWP_Comment_Ancestors = {
   id: number;
   author: {
     id: number;

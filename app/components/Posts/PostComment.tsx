@@ -1,7 +1,7 @@
 import { Link, useFetcher, useNavigate } from "@remix-run/react";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { APP_ROUTES } from "~/constants";
-import type { iWP_Comment, iWP_Post } from "~/models/post.model";
+import type { iWP_Comment } from "~/models/post.model";
 import { AppContext } from "~/contexts/appContext";
 import Avatar from "../User/Avatar";
 import { ClientOnly } from "remix-utils/client-only";
@@ -16,6 +16,17 @@ import ModalNotification from "../Modals/ModalNotification";
 import PostCommentEditor from "./PostCommentEditor";
 import { Collapse } from "@kunukn/react-collapse";
 import { useAutoFetcher } from "~/utilities/hooks/useAutoFetcher";
+import type {
+  EMOJI_SELECTED_EVENT,
+  iEmojiPickerIcon,
+} from "~/utilities/hooks/useEmojiMart";
+import {
+  dispatchShowMobilePicker,
+  EMOJIMART_EVENTS,
+  useEmojiMart,
+} from "~/utilities/hooks/useEmojiMart";
+import PostEmojis, { calcUserUpdateReaction } from "./PostEmojis";
+import type { iNotificationItem_General } from "../Managers/Notification/NotificationItem";
 
 const BUTTON_CLASSNAMES =
   "text-[#686867] font-semibold text-sm hover:text-[#032525]";
@@ -33,14 +44,17 @@ export default function PostComment({
   active?: boolean;
   onSubmit?: (comment: iWP_Comment) => void;
 }) {
-  const { User } = useContext(AppContext);
-  const navigation = useNavigate();
+  const { User, NotificationManager } = useContext(AppContext);
+  const navigate = useNavigate();
 
   const commentId = `comment-${comment.databaseId}`;
   const editorHolderId = useRef(`comment-readonly-editor-${commentId}`);
 
   const fetcher = useFetcher();
   const editorRef = useRef<EditorJS>();
+
+  const { EmojiMart } = useEmojiMart();
+  const [showEmojiMart, setShowEmojiMart] = useState<boolean>(false);
 
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -52,6 +66,9 @@ export default function PostComment({
   const [isCommentCollapsed, setIsCommentCollapsed] = useState(true);
   const [isReported, setIsReported] = useState(
     comment.commentsField.isReported,
+  );
+  const [totalEmojis, setTotalEmojis] = useState(
+    comment.commentsField.totalEmojis,
   );
 
   const { state: commentFetchState, submit: commentFetchSubmit } =
@@ -86,10 +103,26 @@ export default function PostComment({
     if (!fetcher.data) return;
 
     const data = fetcher.data as iGenericSuccess | iGenericError;
+    const errorNotification: iNotificationItem_General = {
+      type: "error",
+      message: "An error occurred while trying to",
+      time: DateTime.now().toISO(),
+    };
+
     switch (action) {
+      case "REACT":
+        if ("error" in data) {
+          errorNotification.message += ` react to comment #${comment.databaseId}. Please try again.`;
+          setTotalEmojis(comment.commentsField.totalEmojis);
+          NotificationManager.addNotification(errorNotification);
+        }
+        break;
       case "DELETE":
         if ("error" in data) {
+          errorNotification.message += ` delete post #${comment.databaseId}. Please try again.`;
           setIsDeleted(false);
+
+          NotificationManager.addNotification(errorNotification);
         } else {
           setIsDeleted(true);
         }
@@ -119,19 +152,24 @@ export default function PostComment({
 
   const handleReactComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!User.user) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigate(APP_ROUTES.LOGIN);
+    if (window.innerWidth < 768) {
+      dispatchShowMobilePicker(commentId);
+    } else {
+      setShowEmojiMart(!showEmojiMart);
+    }
   };
 
   const handleReplyComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!User.user) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigate(APP_ROUTES.LOGIN);
 
     setIsCommentCollapsed(!isCommentCollapsed);
   };
 
   const handleReportComment = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (!User.user) return navigation(APP_ROUTES.LOGIN);
+    if (!User.user) return navigate(APP_ROUTES.LOGIN);
 
     commentFetchSubmit(
       {
@@ -177,6 +215,68 @@ export default function PostComment({
     ),
     [comment.databaseId, onSubmit, postId],
   );
+
+  useEffect(() => {
+    const handleEmojiSelectListener = (event: EMOJI_SELECTED_EVENT) => {
+      const { emoji, id } = event.detail;
+      if (id !== commentId) return;
+      handleEmojiSelect(emoji);
+    };
+
+    window.addEventListener(
+      EMOJIMART_EVENTS.EMOJI_SELECTED,
+      handleEmojiSelectListener as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        EMOJIMART_EVENTS.EMOJI_SELECTED,
+        handleEmojiSelectListener as EventListener,
+      );
+    };
+  }, []);
+
+  const handleEmojiSelect = (emoji: iEmojiPickerIcon) => {
+    setShowEmojiMart(false);
+
+    const result = calcUserUpdateReaction(
+      User,
+      NotificationManager,
+      emoji.id,
+      totalEmojis,
+    );
+
+    if (!result) return;
+
+    if ("time" in result) {
+      NotificationManager.addNotification(result);
+      return;
+    }
+
+    setTotalEmojis(result.emojis);
+    console.log("comment emoji", result.emojis, emoji.id);
+
+    const formData = new FormData();
+    formData.append("postId", comment.databaseId.toString());
+    formData.append("action", result.action);
+    formData.append("emojiId", emoji.id);
+    formData.append("emojiIcon", emoji.native);
+
+    fetcher.submit(formData, {
+      method: "post",
+      action: "/api/comment/react",
+    });
+
+    setAction("REACT");
+  };
+
+  const emojiMartPickerOptions = {
+    skinTonePosition: "none",
+    skin: 1,
+    dynamicWidth: true,
+    onEmojiSelect: (emoji: iEmojiPickerIcon) => handleEmojiSelect(emoji),
+    onClickOutside: () => setShowEmojiMart(false),
+  };
 
   if (isDeleted) {
     return <></>;
@@ -277,15 +377,42 @@ export default function PostComment({
                 />
               )}
             </div>
+            {totalEmojis.usersCount > 0 && (
+              <div className="mt-1">
+                <PostEmojis
+                  postId={comment.databaseId}
+                  postType="COMMENT"
+                  totalEmojis={totalEmojis}
+                  onChange={(totalEmojis) => {
+                    setTotalEmojis(totalEmojis);
+                  }}
+                />
+              </div>
+            )}
+            <div className="">
+              <Collapse
+                isOpen={showEmojiMart}
+                transition={"height 300ms cubic-bezier(0.4, 0, 0.2, 1)"}
+              >
+                <EmojiMart
+                  id={`emoji-mart-mobile-comment-${comment.databaseId}`}
+                  className={classNames(
+                    "post-react-button-emoji-mart",
+                    "mt-2 h-60 w-full",
+                  )}
+                  pickerOptions={emojiMartPickerOptions}
+                />
+              </Collapse>
+            </div>
             <div className="mt-3 flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 ">
-                {/* <button
-                type="button"
-                className={BUTTON_CLASSNAMES}
-                onClick={handleReactComment}
-              >
-                React
-              </button> */}
+                <button
+                  type="button"
+                  className={BUTTON_CLASSNAMES}
+                  onClick={handleReactComment}
+                >
+                  React
+                </button>
                 <button
                   type="button"
                   className={classNames(

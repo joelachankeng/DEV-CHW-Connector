@@ -1,5 +1,5 @@
 import type { Picker } from "emoji-mart";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ClientOnly } from "remix-utils/client-only";
 import { classNames } from "../main";
 
@@ -79,7 +79,7 @@ export const useEmojiMart = () => {
 
   const MobileComponent = ({
     id = "mobile-emoji-picker",
-    className,
+    className = "flex items-center justify-center",
   }: {
     id?: string;
     className?: string;

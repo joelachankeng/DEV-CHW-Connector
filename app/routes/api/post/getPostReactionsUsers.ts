@@ -1,4 +1,5 @@
-import { ActionFunctionArgs, json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { Feed } from "~/controllers/feed.control";
 import { getJWTUserDataFromSession } from "~/servers/userSession.server";
 
@@ -9,9 +10,6 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   const formData = await request.formData();
-
-  const userId = JWTUser.user.ID;
-
   const postId = formData.get("postId") as string;
   const emojiId = formData.get("emojiId") as string;
   const _offset = formData.get("offset") as string;

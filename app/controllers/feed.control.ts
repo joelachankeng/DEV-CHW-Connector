@@ -122,6 +122,20 @@ const COMMENT_QUERY_FIELDS = (userId: string): string => `
       firstName
       lastName
     }
+    totalEmojis {
+      usersCount
+      users {
+        avatar
+        name
+        userId
+        emojiId
+        emojiIcon
+      }
+      collection {
+        count
+        emojiId
+      }
+    }
   }
 `;
 export abstract class Feed {
@@ -479,6 +493,48 @@ export abstract class Feed {
             id: "${commentId}"
           }) {
             clientMutationId
+          }
+        }
+      `);
+      }
+
+      public static async reactComment(
+        userId: string,
+        postId: string,
+        emojiId: string,
+        emojiIcon: string,
+      ): Promise<string | Error> {
+        return await GraphQL.mutate(gql`
+        mutation MyMutation {
+          userReactPostComment(input: { 
+            postId: ${postId},
+            userId: ${userId},
+            emojiId: "${emojiId}" 
+            emojiIcon: "${emojiIcon}"
+          }) {
+            clientMutationId
+            message
+            success
+          }
+        }
+      `);
+      }
+
+      public static async unReactComment(
+        userId: string,
+        postId: string,
+        emojiId: string,
+      ): Promise<string | Error> {
+        return await GraphQL.mutate(gql`
+        mutation MyMutation {
+          userUnReactPostComment(input: { 
+            postId: ${postId}, 
+            userId: ${userId},
+            emojiId: "${emojiId}"
+          }) {
+            clientMutationId
+            message
+            success
           }
         }
       `);

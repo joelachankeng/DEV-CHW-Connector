@@ -18,6 +18,22 @@ import { Feed } from "~/controllers/feed.control";
 import { NotificationControl } from "~/controllers/notification.control";
 import type { iWP_NotificationTypes } from "~/models/notifications.model";
 import { UserPublic } from "~/controllers/user.control.public";
+import type {
+  iWP_Comment,
+  iWP_Post,
+  iWP_Posts_EmojisUser,
+} from "~/models/post.model";
+
+type iPostData =
+  | {
+      userEmoji?: iWP_Posts_EmojisUser;
+      authorId: number;
+      postContent: string;
+      originalPost: iWP_Post;
+      type: "POST" | "COMMENT" | "MESSAGE";
+      url: string;
+    }
+  | undefined;
 
 export default async function reactionHandler(
   request: Request,
@@ -36,18 +52,56 @@ export default async function reactionHandler(
   const parseId = parseInt(postId);
   if (isNaN(parseId)) return console.error("Invalid post ID", postId);
 
-  const post = await Feed.API.Post.getPost(
-    userData.user.ID.toString(),
-    parseId.toString(),
-  );
+  let post: iWP_Post | iWP_Comment | Error | null | undefined = undefined;
+
+  const isComment = request.headers.get("postCommentId") as string;
+  if (isComment && isComment.toString() === postId.toString()) {
+    post = await Feed.API.Comment.getComment(
+      userData.user.ID.toString(),
+      parseId.toString(),
+    );
+  } else {
+    post = await Feed.API.Post.getPost(
+      userData.user.ID.toString(),
+      parseId.toString(),
+    );
+  }
   if (!post || post instanceof Error)
     return console.error("There was an error getting the post", post);
 
-  const userEmoji = post.postFields.totalEmojis.users?.find(
-    (u) => u.userId.toString() === userData.user.ID.toString(),
-  );
+  let postData: iPostData = undefined;
+  if ("postFields" in post) {
+    postData = {
+      userEmoji: post.postFields.totalEmojis.users?.find(
+        (u) => u.userId.toString() === userData.user.ID.toString(),
+      ),
+      authorId: post.author.node.databaseId,
+      postContent: getParagraphTextFromEditorData(post.postFields.content),
+      originalPost: post,
+      type: "POST",
+      url: `${APP_ROUTES.POST}/${post.databaseId}`,
+    };
+  } else {
+    const getCommentPost = await Feed.API.Post.getPost(
+      userData.user.ID.toString(),
+      post.commentsField.postId.toString(),
+    );
+    if (!getCommentPost || getCommentPost instanceof Error)
+      return console.error("There was an error getting the comment post", post);
 
-  if (!userEmoji) return console.error("Could not find user emoji");
+    postData = {
+      userEmoji: post.commentsField.totalEmojis.users?.find(
+        (u) => u.userId.toString() === userData.user.ID.toString(),
+      ),
+      authorId: post.commentsField.author.databaseId,
+      postContent: getParagraphTextFromEditorData(post.commentsField.content),
+      originalPost: getCommentPost,
+      type: "COMMENT",
+      url: `${APP_ROUTES.POST}/${post.commentsField.postId}/comment/${post.databaseId}`,
+    };
+  }
+
+  if (!postData.userEmoji) return console.error("Could not find user emoji");
 
   const currentUser = await User.API.getUser(
     userData.user.ID.toString(),
@@ -61,7 +115,7 @@ export default async function reactionHandler(
     );
 
   const poster = await User.API.getUser(
-    post.author.node.databaseId.toString(),
+    postData.authorId.toString(),
     "DATABASE_ID",
   );
 
@@ -76,29 +130,25 @@ export default async function reactionHandler(
   //=================================================
 
   const title = `New Reaction`;
-  const url = `${APP_ROUTES.POST}/${post.databaseId}`;
-  const fullUrl = `${getRequestDomain(request)}${url}`;
+  const fullUrl = `${getRequestDomain(request)}${postData.url}`;
 
   const excerpt = excerpts(
-    `${currentUser.firstName} ${currentUser.lastName} reacted via ${userEmoji.emojiIcon}`,
+    `${currentUser.firstName} ${currentUser.lastName} reacted via ${postData.userEmoji.emojiIcon}`,
   );
 
-  const postExcerpt = excerpts(
-    getParagraphTextFromEditorData(post.postFields.content),
-    { characters: 100 },
-  );
+  const postExcerpt = excerpts(postData.postContent, { characters: 100 });
 
-  const groupType = getPostGroupType(post);
+  const groupType = getPostGroupType(postData.originalPost);
   if (!groupType) return console.error("Could not get group type");
 
   NotificationControl.API.create({
     id: 0, // SQL will auto-increment the ID
-    user_id: post.author.node.databaseId,
+    user_id: postData.originalPost.author.node.databaseId,
     type: postType as iWP_NotificationTypes,
     group_type: groupType.type,
     user_url: `${APP_ROUTES.PROFILE}/${currentUser.databaseId}`,
     avatar: currentUser.avatar.url || "",
-    url: url,
+    url: postData.url,
     full_name: title,
     is_read: false,
     excerpt: excerpt,
@@ -108,7 +158,7 @@ export default async function reactionHandler(
   });
 
   const users = await User.API.getNotificationSettings({
-    userIds: [post.author.node.databaseId],
+    userIds: [postData.originalPost.author.node.databaseId.toString()],
   });
 
   if (!users || users instanceof Error)
@@ -142,7 +192,7 @@ export default async function reactionHandler(
         profileLink: "",
       },
       `${currentUser.firstName} ${currentUser.lastName}`,
-      userEmoji.emojiIcon,
+      postData.userEmoji.emojiIcon,
       postExcerpt,
       fullUrl,
     );
@@ -153,23 +203,27 @@ export default async function reactionHandler(
   }
 
   if (pushUsers.length > 0) {
-    const emails = pushUsers.map((m) => m.user_email);
+    let emails = pushUsers.map((m) => m.user_email);
+    emails =
+      process.env.NODE_ENV === "development"
+        ? ["jachankeng+1@hria.org"]
+        : emails;
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails:
-        process.env.NODE_ENV === "development"
-          ? ["jachankeng+1@hria.org"]
-          : emails,
+      emails: emails,
       headings: {
         en: "New Reaction",
       },
       subtitle: {
-        en: `${currentUser.firstName} ${currentUser.lastName} reacted to your post`,
+        en: `${currentUser.firstName} ${currentUser.lastName} reacted to your ${postData.type.toLowerCase()}`,
       },
-      contents: { en: userEmoji.emojiIcon },
-      name: `Automated Push Notification for New Post Reaction: ${userEmoji.userId}`,
+      contents: { en: postData.userEmoji.emojiIcon },
+      name: `Automated Push Notification for New ${postData.type} Reaction: ${postData.userEmoji.userId}`,
       url: fullUrl,
+      data: {
+        emails: emails.join(","),
+      },
     });
     if (result instanceof Error)
       console.error("An error occurred sending push notification", result);

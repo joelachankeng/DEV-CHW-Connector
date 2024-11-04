@@ -76,7 +76,11 @@ export default async function publicHealthAlertHandler(
   }
 
   if (pushUsers.length > 0) {
-    const emails = pushUsers.map((m) => m.user_email);
+    let emails = pushUsers.map((m) => m.user_email);
+    emails =
+      process.env.NODE_ENV === "development"
+        ? ["jachankeng+1@hria.org"]
+        : emails;
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
@@ -89,6 +93,9 @@ export default async function publicHealthAlertHandler(
       contents: { en: excerpts(alert.content, { characters: 100 }) },
       name: `Automated Push Notification for Public Health Alert: ${alert.databaseId}`,
       url: `${getRequestDomain(request)}${APP_ROUTES.PUBLIC_HEALTH_ALERTS}/${alert.databaseId}`,
+      data: {
+        emails: emails.join(","),
+      },
     });
     if (result instanceof Error)
       console.error("An error occurred sending push notification", result);

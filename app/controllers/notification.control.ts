@@ -117,6 +117,7 @@ export abstract class NotificationControl {
         request: Request,
         postId: number | string,
         postType: iWP_NotificationTypes,
+        additionalData?: Record<string, string>,
       ): Promise<void | Error> {
         const session = await getSession(request);
         const userToken = session.get("user");
@@ -125,6 +126,12 @@ export abstract class NotificationControl {
         formData.append("session", userToken || "");
         formData.append("postId", postId.toString());
         formData.append("postType", postType);
+
+        if (additionalData) {
+          for (const key in additionalData) {
+            formData.append(key, additionalData[key]);
+          }
+        }
 
         return await NotificationControl.Utils.post<void>(
           NotificationControl.Utils.getAutomationsURL(request),

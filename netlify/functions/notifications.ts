@@ -23,7 +23,6 @@ import reactionHandler from "./notifications/reaction";
 import commentHandler from "./notifications/comment";
 
 export default async (request: Request, context: Context) => {
-  console.log("process.env.NODE_ENV", process.env.NODE_ENV);
   console.log("DEV MODE", isDevMode(request));
 
   const postType = request.headers.get("postType") as string | undefined;

@@ -133,14 +133,15 @@ export default async function messageHandler(
   }
 
   if (pushUsers.length > 0) {
-    const emails = pushUsers.map((m) => m.user_email);
+    let emails = pushUsers.map((m) => m.user_email);
+    emails =
+      process.env.NODE_ENV === "development"
+        ? ["jachankeng+1@hria.org"]
+        : emails;
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails:
-        process.env.NODE_ENV === "development"
-          ? ["jachankeng+1@hria.org"]
-          : emails,
+      emails: emails,
       headings: {
         en: "New Message",
       },
@@ -150,6 +151,9 @@ export default async function messageHandler(
       contents: { en: excerpt },
       name: `Automated Push Notification for New Message: ${message.databaseId}`,
       url: fullUrl,
+      data: {
+        emails: emails.join(","),
+      },
     });
     if (result instanceof Error)
       console.error("An error occurred sending push notification", result);
