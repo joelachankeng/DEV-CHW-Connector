@@ -55,6 +55,8 @@ export default async function reactionHandler(
   let post: iWP_Post | iWP_Comment | Error | null | undefined = undefined;
 
   const isComment = request.headers.get("postCommentId") as string;
+  console.log("isComment", isComment);
+
   if (isComment && isComment.toString() === postId.toString()) {
     post = await Feed.API.Comment.getComment(
       userData.user.ID.toString(),
@@ -102,6 +104,8 @@ export default async function reactionHandler(
   }
 
   if (!postData.userEmoji) return console.error("Could not find user emoji");
+
+  console.log("postData", postData);
 
   const currentUser = await User.API.getUser(
     userData.user.ID.toString(),
@@ -178,6 +182,8 @@ export default async function reactionHandler(
         : settings["Community Groups"];
     return setting.Reactions.pushNotifications === true;
   });
+
+  return;
 
   if (emailUsers.length > 0) {
     const bcc = emailUsers.map((m) => m.user_email).join(", ");
