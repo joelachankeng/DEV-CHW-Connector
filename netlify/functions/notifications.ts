@@ -109,6 +109,6 @@ export const isDevMode = (request: Request): boolean => {
   if (process.env.NODE_ENV === "development") return true;
   const url = new URL(request.url);
   if (url.hostname.includes("localhost")) return true;
-  if (url.hostname.includes("dev.")) return true;
+  if (url.hostname.includes("dev")) return true;
   return false;
 };
