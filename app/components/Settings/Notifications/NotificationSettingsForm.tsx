@@ -86,12 +86,13 @@ type iActionData =
 
 export function NotificationSettingsForm({
   settings,
+  onSubmit,
 }: {
   settings: iNotificationSettings_Subcategory;
+  onSubmit: (formFields: iFormField[], data: FormData) => void;
 }) {
   const actionData = useActionData() as iActionData;
   const navigation = useNavigation();
-  const submit = useSubmit();
   const { User } = useContext(AppContext);
 
   const [actionDataState, setActionDataState] = useState(actionData);
@@ -110,7 +111,6 @@ export function NotificationSettingsForm({
       setIsSubmitting(false);
       setActionDataState(actionData);
     }
-    console.log("actionData is ran");
   }, [actionData, isSubmitting, navigation.state]);
 
   useEffect(() => {
@@ -128,28 +128,17 @@ export function NotificationSettingsForm({
           actionDataState.success,
         )
       ) {
-        console.log(
-          "User.user.userFields.notificationSettings",
-          User.user.userFields.notificationSettings,
-        );
-
         User.set(newUser);
         // setActionDataState(undefined);
       }
     }
-    console.log("actionDataState is ran");
   }, [actionDataState]);
 
   const handleSubmit = (e?: React.MouseEvent<HTMLButtonElement>) => {
     e?.preventDefault();
     const result = handleFormFieldsSubmit(formFields, schemaObject, e);
     if ("error" in result) return setFormFields(result.error);
-
-    submit(result.formData, {
-      method: "post",
-      encType: "multipart/form-data",
-      action: window.location.pathname,
-    });
+    onSubmit(formFields, result.formData);
   };
 
   return (

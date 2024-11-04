@@ -1,6 +1,6 @@
 import { SettingsNotificationsLink } from "./index";
-import { Link, useLocation } from "@remix-run/react";
-import _, { set } from "lodash";
+import { Link, useLocation, useSubmit } from "@remix-run/react";
+import _ from "lodash";
 import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import { NotificationSettingsForm } from "~/components/Settings/Notifications/NotificationSettingsForm";
 import type { ActionFunctionArgs } from "@remix-run/node";
@@ -12,6 +12,7 @@ import { useContext, useEffect, useState } from "react";
 import { User } from "~/controllers/user.control";
 import { AppContext } from "~/contexts/appContext";
 import { ErrorComponent } from "~/components/Pages/ErrorPage";
+import type { iFormField } from "~/components/Forms/FormFields";
 
 type iCurrentSettings_DataType =
   | {
@@ -91,6 +92,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function SettingsNotificationsSettings() {
   const { User } = useContext(AppContext);
   const location = useLocation();
+  const submit = useSubmit();
 
   const [currentSettings, setCurrentSettings] = useState<
     iCurrentSettings | undefined
@@ -106,6 +108,21 @@ export default function SettingsNotificationsSettings() {
 
     setCurrentSettings(settings);
   }, [User.user, currentSettings, location.pathname]);
+
+  const handleOnSubmit = (formFields: iFormField[], formData: FormData) => {
+    if (!currentSettings) return;
+    if (!("primaryCategory" in currentSettings)) return;
+    if (!User.user) return;
+
+    formData.append("primaryCategory", currentSettings.primaryCategory);
+    formData.append("settingsName", currentSettings.title);
+
+    submit(formData, {
+      method: "post",
+      encType: "multipart/form-data",
+      action: window.location.pathname,
+    });
+  };
 
   return (
     <>
@@ -128,7 +145,10 @@ export default function SettingsNotificationsSettings() {
           {"list" in currentSettings ? (
             <NotificationSettingsSubcategory list={currentSettings.list} />
           ) : (
-            <NotificationSettingsForm settings={currentSettings.settings} />
+            <NotificationSettingsForm
+              settings={currentSettings.settings}
+              onSubmit={handleOnSubmit}
+            />
           )}
         </>
       ) : (

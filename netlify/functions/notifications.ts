@@ -20,6 +20,7 @@ import { decryptUserSession } from "~/servers/userSession.server";
 import messageHandler from "./notifications/message";
 import type { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
 import reactionHandler from "./notifications/reaction";
+import commentHandler from "./notifications/comment";
 
 export default async (request: Request, context: Context) => {
   // console.log("request", request);
@@ -39,6 +40,9 @@ export default async (request: Request, context: Context) => {
     case "reaction":
       await reactionHandler(request, context);
       break;
+    case "comment":
+      await commentHandler(request, context);
+      break;
     default:
       return console.error("Invalid post type", postType);
   }
@@ -50,11 +54,7 @@ export const filterUserByNotificationSettings = (
 ): iWP_User_NotificationSettings[] => {
   const filteredUsers: typeof users = [];
   users.forEach((user) => {
-    const settings = User.Utils.restoreNotificationSettingsFromWP({
-      siteNotifications: user.siteNotifications,
-      pushNotifications: user.pushNotifications,
-      emailNotifications: user.emailNotifications,
-    });
+    const settings = user.notificationSettings;
     if (func(settings)) {
       filteredUsers.push(user);
     }

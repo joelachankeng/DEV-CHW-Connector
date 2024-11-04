@@ -109,15 +109,6 @@ export const defaultNotificationSettings: iNotificationSettings = {
   },
 };
 
-export type iWP_NotificationSettings_Prepare = {
-  [key in keyof iNotificationSettings_Type]: {
-    value: string[];
-  };
-};
-export type iWP_NotificationSettings_Restore = {
-  [key in keyof iNotificationSettings_Type]: string[];
-};
-
 export type iWP_NotificationTypes =
   | "comment"
   | "post"
@@ -145,7 +136,8 @@ export type iWP_User_NotificationSettings = {
   ID: string;
   user_email: string;
   admin: boolean;
-} & iWP_NotificationSettings_Restore;
+  notificationSettings: iNotificationSettings;
+};
 
 export type iWP_Notification_Pagination = {
   notifications: iWP_Notification[];

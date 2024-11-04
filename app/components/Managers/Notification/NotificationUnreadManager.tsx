@@ -105,6 +105,33 @@ export default function NotificationUnreadManager() {
               }
             }
             break;
+          case "comment":
+            itemType = "post";
+            if (n.group_type === "COMMUNITY") {
+              const notificationSetting =
+                User.user.userFields.notificationSettings["Community Groups"]
+                  .Comments;
+
+              if (notificationSetting.siteNotifications === false) {
+                return console.log(
+                  "User has disabled Community Groups Comments",
+                  notificationSetting,
+                );
+              }
+            }
+            if (n.group_type === "NETWORK") {
+              const notificationSetting =
+                User.user.userFields.notificationSettings["CHW Network Groups"]
+                  .Comments;
+
+              if (notificationSetting.siteNotifications === false) {
+                return console.log(
+                  "User has disabled CHW Network Comments",
+                  notificationSetting,
+                );
+              }
+            }
+            break;
           default:
             break;
         }

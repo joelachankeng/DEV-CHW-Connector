@@ -115,7 +115,8 @@ export default async function postHandler(request: Request, context: Context) {
 
   const uniqueMembers: iGroupMember[] = [];
   members.forEach((member) => {
-    if (uniqueMembers.find((m) => m.id === member.id)) return;
+    if (uniqueMembers.find((m) => m.id.toString() === member.id.toString()))
+      return;
     uniqueMembers.push(member);
   });
 
@@ -216,8 +217,10 @@ export default async function postHandler(request: Request, context: Context) {
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      //emails: ["jachankeng+1@hria.org"],
-      emails: emails,
+      emails:
+        process.env.NODE_ENV === "production"
+          ? emails
+          : ["jachankeng+1@hria.org"],
       headings: {
         en: "New Post".concat(
           post.postFields.poster === "GROUP" ? "" : ` in ${groupName}`,

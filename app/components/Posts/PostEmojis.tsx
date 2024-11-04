@@ -292,6 +292,7 @@ export function calcUserUpdateReaction(
         {
           userId: user?.databaseId || 0,
           emojiId,
+          emojiIcon: "",
           avatar: user?.avatar.url || "",
           name: `${user?.firstName} ${user?.lastName}` || "",
         },

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@headlessui/react";
 import Modal from "./ModalBlank";
-import { iWP_Post, iWP_Posts_EmojisUser } from "~/models/post.model";
+import type { iWP_Post, iWP_Posts_EmojisUser } from "~/models/post.model";
 import SVGCloseButton from "~/assets/SVGs/SVGCloseButton";
-import { SlickSlider, iSliderRef } from "../SlickSlider";
+import type { iSliderRef } from "../SlickSlider";
+import { SlickSlider } from "../SlickSlider";
 import { classNames, generatePassword } from "~/utilities/main";
 import Avatar from "../User/Avatar";
 import { Link } from "@remix-run/react";
@@ -29,6 +30,7 @@ const fakeUsers = (
         name: generatePassword(10),
         userId: index,
         emojiId: emoji.emojiId,
+        emojiIcon: emoji.emojiId,
       });
   });
   return users;

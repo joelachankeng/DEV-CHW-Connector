@@ -77,7 +77,7 @@ export default async function reactionHandler(
   const fullUrl = `${getRequestDomain(request)}${url}`;
 
   const excerpt = excerpts(
-    `${currentUser.firstName} ${currentUser.lastName} reacted via ${userEmoji.emojiId}`,
+    `${currentUser.firstName} ${currentUser.lastName} reacted via ${userEmoji.emojiIcon}`,
   );
 
   const postExcerpt = excerpts(
@@ -139,7 +139,7 @@ export default async function reactionHandler(
         profileLink: "",
       },
       `${currentUser.firstName} ${currentUser.lastName}`,
-      userEmoji.emojiId,
+      userEmoji.emojiIcon,
       postExcerpt,
       fullUrl,
     );
@@ -154,15 +154,17 @@ export default async function reactionHandler(
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      // emails: ["jachankeng+1@hria.org"],
-      emails: emails,
+      emails:
+        process.env.NODE_ENV === "production"
+          ? emails
+          : ["jachankeng+1@hria.org"],
       headings: {
         en: "New Reaction",
       },
       subtitle: {
-        en: `${currentUser.firstName} ${currentUser.lastName}`,
+        en: `${currentUser.firstName} ${currentUser.lastName} reacted to your post`,
       },
-      contents: { en: userEmoji.emojiId },
+      contents: { en: userEmoji.emojiIcon },
       name: `Automated Push Notification for New Post Reaction: ${userEmoji.userId}`,
       url: fullUrl,
     });

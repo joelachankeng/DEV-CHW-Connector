@@ -17,6 +17,7 @@ type iPostCommentsThread_All = {
   post: iWP_Post;
   total: number;
   indent?: number;
+  activeCommentId?: number;
 };
 
 type iPostCommentsThread_Root = {
@@ -61,6 +62,7 @@ function PostCommentsThreadRoot({
   totalComments,
   indent = 0,
   total = 0,
+  activeCommentId,
 }: iPostCommentsThread_All & iPostCommentsThread_Root) {
   const [allOrganizedComments, setAllOrganizedComments] = useState(
     organizeAllComments(totalComments),
@@ -125,6 +127,7 @@ function PostCommentsThreadRoot({
             newComments,
             threadFetch.commentId,
             data.pageInfo.total,
+            true,
           );
           childPaginations.current[threadFetch.commentId] = data.pageInfo;
 
@@ -239,7 +242,7 @@ function PostCommentsThreadRoot({
       commentId: submitData.current.commentId,
       isFetching: true,
     });
-  }, [postCommentsFetchState, postCommentsFetchSubmit, startSubmit]);
+  }, [postCommentsFetchState, startSubmit]);
 
   useEffect(() => {
     window.addEventListener(
@@ -273,6 +276,7 @@ function PostCommentsThreadRoot({
         indent={indent}
         post={post}
         total={getTotal()}
+        activeCommentId={activeCommentId}
       />
       <div className="mx-auto my-2 flex flex-col items-center justify-center">
         {!threadFetch.isFetching && postCommentsFetchState !== "idle" ? (
@@ -298,6 +302,7 @@ function PostCommentsThreadChild({
   organizedAllComments,
   indent = 0,
   total = 0,
+  activeCommentId,
 }: iPostCommentsThread_All & iPostCommentsThread_Child) {
   const groupId =
     post.postFields.network?.node.databaseId ||
@@ -379,6 +384,7 @@ function PostCommentsThreadChild({
               groupId={groupId}
               postId={post.databaseId}
               onSubmit={handlePostCommentSubmit}
+              active={activeCommentId === comments.comment.databaseId}
             />
             <PostCommentsThread
               root={false}
@@ -386,7 +392,18 @@ function PostCommentsThreadChild({
               indent={indent + 1}
               post={post}
               total={getTotal(comments)}
+              activeCommentId={activeCommentId}
             />
+            {process.env.NODE_ENV === "development" && (
+              <>
+                {JSON.stringify({
+                  commentId: comments.comment.databaseId,
+                  totalReplies: comments.comment.totalReplies,
+                  children: comments.children.length,
+                  getTotal: getTotal(comments),
+                })}
+              </>
+            )}
             {getTotal(comments) > 0 && (
               <div className="-mt-5 ml-10">
                 {loading === comments.comment.databaseId ? (
@@ -534,6 +551,8 @@ function addChildrenToOrganizedComments(
         data.comments[i].children,
         newComments,
         parentId,
+        undefined,
+        replace,
       );
       if (result.found) {
         return {

@@ -71,14 +71,9 @@ import type {
   iNotificationSettings,
   iNotificationSettings_Subcategory,
   iNotificationSettings_Type,
-  iWP_NotificationSettings_Prepare,
-  iWP_NotificationSettings_Restore,
   iWP_User_NotificationSettings,
 } from "~/models/notifications.model";
-import {
-  defaultNotificationSettings,
-  WP_NOTIFICATION_SEPARATOR,
-} from "~/models/notifications.model";
+import { defaultNotificationSettings } from "~/models/notifications.model";
 import type { iGenericError, iGenericSuccess } from "~/models/appContext.model";
 import password from "~/routes/settings/password";
 import { MESSAGE_QUERY_FIELDS } from "./message.control";
@@ -123,9 +118,7 @@ const USER_QUERY_FIELDS = (userId: string, includePrivateFields = false) => `
     memberships
     genderIdentity
     howDidYouHear
-    siteNotifications
-    pushNotifications
-    emailNotifications
+    notificationSettingsEncoded
     public
     groupAdminAll
     changeemail {
@@ -186,11 +179,6 @@ export abstract class User {
       emailType: string,
       createdViaMemberclicks = false,
     ): Promise<string | Error> {
-      // this enables all notifications by for new users
-      const notificationSettings = User.Utils.pepareNotificationSettingsForWP(
-        defaultNotificationSettings,
-      );
-
       // this set all profile fields to visible for new users
       const profileFields = _.cloneDeep(defaultProfileFormFields);
       const removeKey: Array<keyof iProfileFormFields> = [
@@ -206,7 +194,7 @@ export abstract class User {
       const profile = btoa(
         JSON.stringify({
           ...profileFields,
-          ...notificationSettings,
+          notificationSettings: defaultNotificationSettings,
         }),
       );
       return await GraphQL.mutate(gql`
@@ -386,7 +374,9 @@ export abstract class User {
       userId: string,
       fields:
         | iProfileFormFields
-        | iWP_NotificationSettings_Prepare
+        | {
+            notificationSettings: iNotificationSettings;
+          }
         | {
             deletionDate: { value: string };
           },
@@ -1685,6 +1675,29 @@ export abstract class User {
     ): Promise<
       TypedResponse<{ success: iNotificationSettings } | iGenericError>
     > {
+      const JWTUser = await getJWTUserDataFromSession(request);
+      if (!JWTUser) {
+        return json({ error: "UNAUTHORIZED" }, { status: 401 });
+      }
+      const userId = JWTUser.user.ID;
+      const fetchSettings = await User.API.getNotificationSettings({
+        userIds: [userId],
+      });
+      if (fetchSettings instanceof Error) {
+        return json(
+          {
+            error: `An error occurred while fetching user settings: ${fetchSettings.message}`,
+          },
+          { status: 400 },
+        );
+      }
+      const userSettings = fetchSettings.find(
+        (settings) => settings.ID.toString() === userId.toString(),
+      );
+      if (!userSettings) {
+        return json({ error: "User's settings not found" }, { status: 400 });
+      }
+
       const url = new URL(request.url);
       const currentSettings = parseSettingsFromPathName(
         url.pathname,
@@ -1715,9 +1728,10 @@ export abstract class User {
       const primaryCategory = currentSettings.primaryCategory;
       const settingsName = currentSettings.title;
 
-      const updatedSettings = User.Utils.updateNotificationSettings(
+      const updatedSettings = User.Utils.updateNotificationsSettings(
         primaryCategory,
-        settingsName as keyof iNotificationSettings[typeof primaryCategory],
+        settingsName,
+        userSettings.notificationSettings,
         {
           emailNotifications: submittedForm.fields.find(
             (field) => field.name === "emailNotifications",
@@ -1729,24 +1743,18 @@ export abstract class User {
             (field) => field.name === "siteNotifications",
           )?.value as boolean,
         },
-        defaultNotificationSettings,
       );
 
-      if (!updatedSettings) {
-        return json({ error: "Invalid settings" }, { status: 400 });
+      if (updatedSettings instanceof Error) {
+        return json(
+          { error: `An error occurred: ${updatedSettings.message}` },
+          { status: 400 },
+        );
       }
 
-      const WP_Settings =
-        User.Utils.pepareNotificationSettingsForWP(updatedSettings);
-
-      const JWTUser = await getJWTUserDataFromSession(request);
-      if (!JWTUser) {
-        return json({ error: "UNAUTHORIZED" }, { status: 401 });
-      }
-
-      const userId = JWTUser.user.ID;
-
-      const result = await User.API.updateProfile(userId, WP_Settings);
+      const result = await User.API.updateProfile(userId, {
+        notificationSettings: updatedSettings,
+      });
       if (result instanceof Error) {
         return json({ error: result.message }, { status: 400 });
       }
@@ -1822,150 +1830,6 @@ export abstract class User {
       return `${domain}${APP_ROUTES.CONFIRM_EMAIL}/?email=${emailUri}&code=${codeUri}`;
     }
 
-    public static updateNotificationSettings<
-      iNotificationSettings,
-      K extends keyof iNotificationSettings,
-    >(
-      settingsCategory: K,
-      settingsName: keyof iNotificationSettings[K],
-      newSettings: iNotificationSettings_Type,
-      currentSettings: iNotificationSettings,
-    ): iNotificationSettings | undefined {
-      if (!currentSettings || typeof currentSettings !== "object") return;
-      if (!(settingsCategory in currentSettings)) return;
-
-      if (
-        !currentSettings[settingsCategory] ||
-        typeof currentSettings[settingsCategory] !== "object"
-      )
-        return;
-      if (!(settingsName in currentSettings[settingsCategory])) return;
-
-      const clonedSettings = _.cloneDeep(currentSettings);
-      const subCategory = clonedSettings[settingsCategory][settingsName];
-      if (!subCategory || typeof subCategory !== "object") return;
-
-      const clonedNewSettings = copyKeysToObject(subCategory, newSettings);
-
-      clonedSettings[settingsCategory][settingsName] = clonedNewSettings;
-
-      return clonedSettings;
-    }
-
-    public static pepareNotificationNameForWP(
-      categoryName: string,
-      settingName: string,
-    ): string {
-      return categoryName + WP_NOTIFICATION_SEPARATOR + settingName;
-    }
-
-    public static pepareNotificationSettingsForWP(
-      settings: iNotificationSettings,
-    ): iWP_NotificationSettings_Prepare {
-      // ANY UPDATES TO THIS FUNCTION SHOULD BE APPLIED TO restoreNotificationSettingsFromWP
-      const WP_Settings: iWP_NotificationSettings_Prepare = {
-        siteNotifications: { value: [] },
-        pushNotifications: { value: [] },
-        emailNotifications: { value: [] },
-      };
-
-      const notificationsKeys = Object.keys(WP_Settings) as Array<
-        keyof iNotificationSettings_Type
-      >;
-
-      for (const category in settings) {
-        const categoryKey = category as keyof iNotificationSettings;
-        if (!settings[categoryKey] || typeof settings[categoryKey] !== "object")
-          continue;
-        for (const setting in settings[categoryKey]) {
-          const settingKey =
-            setting as keyof iNotificationSettings[typeof categoryKey];
-          if (
-            !settings[categoryKey][settingKey] ||
-            typeof settings[categoryKey][settingKey] !== "object"
-          )
-            continue;
-          const settingValue = settings[categoryKey][settingKey];
-
-          notificationsKeys.forEach((notificationsKey) => {
-            if (
-              notificationsKey in settingValue &&
-              settingValue[notificationsKey] === true
-            ) {
-              WP_Settings[notificationsKey].value.push(
-                User.Utils.pepareNotificationNameForWP(category, setting),
-              );
-            }
-          });
-        }
-      }
-
-      return WP_Settings;
-    }
-
-    public static restoreNotificationSettingsFromWP(
-      WP_Settings: iWP_NotificationSettings_Restore,
-    ): iNotificationSettings {
-      // ANY UPDATES TO THIS FUNCTION SHOULD BE APPLIED TO pepareNotificationSettingsFormForWP
-      const settings = _.cloneDeep(defaultNotificationSettings);
-
-      // loop through notificationSettings categories
-      // loop through subcategories
-      // loop through notification types
-      // if notification type is not in the WP_Settings, set it to false
-
-      for (const category in settings) {
-        const categoryKey = category as keyof iNotificationSettings;
-        if (!settings[categoryKey] || typeof settings[categoryKey] !== "object")
-          continue;
-        for (const setting in settings[categoryKey]) {
-          const settingKey =
-            setting as keyof iNotificationSettings[typeof categoryKey];
-          if (
-            !settings[categoryKey][settingKey] ||
-            typeof settings[categoryKey][settingKey] !== "object"
-          )
-            continue;
-          const settingValue = settings[categoryKey][
-            settingKey
-          ] as iNotificationSettings_Subcategory;
-          for (const settingValue_Key in settingValue) {
-            const settingValue_KeyKey =
-              settingValue_Key as keyof iNotificationSettings_Subcategory;
-            if (!settingValue[settingValue_KeyKey]) continue;
-            if (!(typeof settingValue[settingValue_KeyKey] === "boolean"))
-              continue;
-
-            if (settingValue_KeyKey in WP_Settings) {
-              const notificationTypes =
-                WP_Settings[
-                  settingValue_KeyKey as keyof iWP_NotificationSettings_Restore
-                ];
-
-              const notificationName = User.Utils.pepareNotificationNameForWP(
-                category,
-                setting,
-              );
-              if (
-                !Array.isArray(notificationTypes) ||
-                !notificationTypes.includes(notificationName)
-              ) {
-                (settings[categoryKey][settingKey][
-                  settingValue_KeyKey
-                ] as boolean) = false;
-                // console.log(notificationName, settingValue_KeyKey, "false");
-              } else {
-                // console.log(notificationName, settingValue_KeyKey, "true");
-              }
-            }
-          }
-        }
-      }
-      // console.log("settings", settings);
-
-      return settings;
-    }
-
     public static async getUserFromSession(
       request: Request,
     ): Promise<iWP_User | Error | undefined> {
@@ -2016,6 +1880,45 @@ export abstract class User {
         avatarUrl: APP_KEYS.UPLOAD.AVATAR,
       };
     }
+
+    public static updateNotificationsSettings(
+      primaryCategory: string,
+      settingName: string,
+      userSettings: iNotificationSettings,
+      newValues: Partial<iNotificationSettings_Type>,
+    ): iNotificationSettings | Error {
+      // EX:  getSetting["CHW Network Groups"]["Reactions"]
+      //      === getSetting["primaryCategory"]["settingName"]
+      const newSettings = _.cloneDeep(userSettings);
+
+      const primarySettingKey = primaryCategory as keyof iNotificationSettings;
+      const primarySetting = newSettings[primarySettingKey];
+      if (!primarySetting)
+        return new Error(`Primary Setting not found for ${primaryCategory}`);
+      const findSettingKey =
+        settingName as keyof iNotificationSettings[keyof iNotificationSettings];
+      const findSetting = primarySetting[findSettingKey] as
+        | iNotificationSettings_Subcategory
+        | undefined;
+      if (!findSetting)
+        return new Error(`Setting not found for ${settingName}`);
+
+      const newValuesKeys: (keyof iNotificationSettings_Type)[] = [
+        "emailNotifications",
+        "pushNotifications",
+        "siteNotifications",
+      ];
+      newValuesKeys.forEach((key) => {
+        if (key in newValues && typeof newValues[key] === "boolean") {
+          findSetting[key] = newValues[key];
+        }
+      });
+
+      (newSettings[primarySettingKey][
+        findSettingKey
+      ] as iNotificationSettings_Subcategory) = findSetting;
+      return newSettings;
+    }
   };
 }
 
@@ -2029,34 +1932,18 @@ function transformUser(
     user.userFields &&
     typeof user.userFields === "object"
   ) {
-    const migratedFields: {
-      siteNotifications: string[];
-      pushNotifications: string[];
-      emailNotifications: string[];
-    } = {
-      siteNotifications: [],
-      pushNotifications: [],
-      emailNotifications: [],
-    };
-
-    const userFields = user.userFields as { [key: string]: unknown };
-    for (const key in migratedFields) {
-      if (key in userFields) {
-        const migratedValue = userFields[key];
-        if (Array.isArray(migratedValue)) {
-          migratedFields[key as keyof typeof migratedFields] =
-            _.cloneDeep(migratedValue);
-          // userFields[key] = undefined;
-        }
+    let userNotificationSettings: iNotificationSettings =
+      defaultNotificationSettings;
+    if (typeof user.userFields.notificationSettingsEncoded === "string") {
+      try {
+        userNotificationSettings = JSON.parse(
+          user.userFields.notificationSettingsEncoded,
+        );
+      } catch (error) {
+        userNotificationSettings = defaultNotificationSettings;
       }
     }
-
-    user.userFields.notificationSettings =
-      User.Utils.restoreNotificationSettingsFromWP({
-        siteNotifications: migratedFields.siteNotifications,
-        pushNotifications: migratedFields.pushNotifications,
-        emailNotifications: migratedFields.emailNotifications,
-      });
+    user.userFields.notificationSettings = userNotificationSettings;
 
     user.userFields.isDeleted = false;
     if ("deletionDate" in user.userFields && user.userFields.deletionDate) {

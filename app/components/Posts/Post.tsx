@@ -1,4 +1,7 @@
-import { EllipsisHorizontalIcon } from "@heroicons/react/20/solid";
+import {
+  ChevronLeftIcon,
+  EllipsisHorizontalIcon,
+} from "@heroicons/react/20/solid";
 import { Link, useFetcher, useNavigate } from "@remix-run/react";
 import SVGComment from "~/assets/SVGs/SVGComment";
 import SVGReact from "~/assets/SVGs/SVGReact";
@@ -46,7 +49,17 @@ import ContextMenu from "../ContextMenu";
 import ModalNotification from "../Modals/ModalNotification";
 import { UserPublic } from "~/controllers/user.control.public";
 
-export default function Post({ post }: { post: iWP_Post }) {
+export default function Post({
+  post,
+  commentOpts,
+}: {
+  post: iWP_Post;
+  commentOpts?: {
+    collapsed?: boolean;
+    activeCommentId?: number;
+    viewAllComments?: boolean;
+  };
+}) {
   const { User, NotificationManager } = useContext(AppContext);
   const navigate = useNavigate();
 
@@ -65,7 +78,9 @@ export default function Post({ post }: { post: iWP_Post }) {
   const [shareModal, setShareModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
-  const [isCommentCollapsed, setIsCommentCollapsed] = useState(true);
+  const [isCommentCollapsed, setIsCommentCollapsed] = useState<boolean>(
+    commentOpts?.collapsed !== undefined ? commentOpts.collapsed : true,
+  );
   const [showEmojiMart, setShowEmojiMart] = useState<boolean>(false);
 
   const editorHolderId = `post-editor-${updatedPost.databaseId}`;
@@ -750,12 +765,24 @@ export default function Post({ post }: { post: iWP_Post }) {
               {updatedPost.postFields.totalComments > 0 && (
                 <>
                   <div className="my-5 w-full border border-[#C1BAB4]"></div>
+                  {commentOpts?.viewAllComments && (
+                    <ViewAllCommentsButton
+                      to={`${APP_ROUTES.POST}/${updatedPost.databaseId}`}
+                    />
+                  )}
+
                   <PostCommentsThread
                     root={true}
                     totalComments={updatedPost.postFields.firstComments}
                     post={updatedPost}
                     total={updatedPost.postFields.firstComments.total}
+                    activeCommentId={commentOpts?.activeCommentId}
                   />
+                  {commentOpts?.viewAllComments && (
+                    <ViewAllCommentsButton
+                      to={`${APP_ROUTES.POST}/${updatedPost.databaseId}`}
+                    />
+                  )}
                 </>
               )}
             </Collapse>
@@ -768,5 +795,32 @@ export default function Post({ post }: { post: iWP_Post }) {
         </h1>
       )}
     </>
+  );
+}
+
+function ViewAllCommentsButton({
+  className,
+  to,
+}: {
+  className?: string;
+  to: string;
+}) {
+  return (
+    <div className="flex">
+      <Link
+        className={classNames(
+          "cursor-pointer text-chw-dark-green hover:text-chw-light-purple",
+          "rounded-[40px] border-[none] py-2.5 pr-[25px] text-center text-base font-bold transition duration-300 ease-in-out",
+          "flex items-center justify-start gap-1",
+          className || "",
+        )}
+        to={to}
+      >
+        <span>
+          <ChevronLeftIcon className="inline-block h-8 w-8" />
+        </span>
+        <span>View All Comments</span>
+      </Link>
+    </div>
   );
 }

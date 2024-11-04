@@ -29,7 +29,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const result =
     action === "REMOVE"
-      ? await Feed.API.Post.unReactPost(userId, postId)
+      ? await Feed.API.Post.unReactPost(userId, postId, emojiId)
       : await Feed.API.Post.reactPost(userId, postId, emojiId, emojiIcon);
 
   if (result instanceof Error) {

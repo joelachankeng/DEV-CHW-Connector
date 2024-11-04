@@ -81,6 +81,7 @@ export type iWP_Posts_EmojisUser = {
   name: string;
   userId: number;
   emojiId: string;
+  emojiIcon: string;
 };
 
 export type iWP_Posts = {
@@ -94,7 +95,7 @@ export type iWP_Comment = {
   modifiedDate?: string;
   totalReplies: number;
   commentsField: {
-    parentId?: number;
+    parentId?: number | null;
     postId: number;
     content: string;
     isReported: boolean;
@@ -112,3 +113,15 @@ export type iWP_Comments = {
 };
 
 export type iWP_Post_Group_Type = "NETWORK" | "COMMUNITY";
+
+export type iWP_Comment_Ancesstors = {
+  id: number;
+  author: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string;
+    email: string;
+    is_admin: boolean;
+  };
+};

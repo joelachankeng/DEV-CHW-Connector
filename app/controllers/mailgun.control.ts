@@ -214,4 +214,56 @@ export abstract class MailGun {
       "h:X-Mailgun-Template-Version": "notification - post reaction",
     });
   }
+
+  public static async sendNewCommentTemplate(
+    recipient: iMailGunTemplate_Recipient,
+    commentator_full_name: string,
+    comment_content: string,
+    comment_link: string,
+  ): Promise<void | Error> {
+    const { to, bcc, firstname, lastname, profileLink } = recipient;
+    return this.sendTemplate({
+      from: APP_KEYS.PUBLIC.MAILGUN_FROM,
+      to,
+      bcc,
+      subject: `New Comment from ${commentator_full_name}`,
+      template: "chw connector default template",
+      "h:X-Mailgun-Variables": {
+        firstname,
+        lastname,
+        profileLink,
+        year: new Date().getFullYear().toString(),
+        commentator_full_name,
+        comment_content,
+        comment_link,
+      },
+      "h:X-Mailgun-Template-Version": "notification - comment",
+    });
+  }
+
+  public static async sendNewCommentReplyTemplate(
+    recipient: iMailGunTemplate_Recipient,
+    commentator_full_name: string,
+    comment_content: string,
+    comment_link: string,
+  ): Promise<void | Error> {
+    const { to, bcc, firstname, lastname, profileLink } = recipient;
+    return this.sendTemplate({
+      from: APP_KEYS.PUBLIC.MAILGUN_FROM,
+      to,
+      bcc,
+      subject: `New Reply from ${commentator_full_name}`,
+      template: "chw connector default template",
+      "h:X-Mailgun-Variables": {
+        firstname,
+        lastname,
+        profileLink,
+        year: new Date().getFullYear().toString(),
+        commentator_full_name,
+        comment_content,
+        comment_link,
+      },
+      "h:X-Mailgun-Template-Version": "notification - comment reply",
+    });
+  }
 }

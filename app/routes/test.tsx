@@ -19,10 +19,12 @@ import { User } from "~/controllers/user.control";
 import type { iUser_UploadKeys } from "~/models/user.model";
 import { OneSignal } from "~/controllers/OneSignal.control";
 import { NotificationControl } from "~/controllers/notification.control";
+import { defaultNotificationSettings } from "~/models/notifications.model";
 
 type iLoaderData = {
   uploadKeys: iUser_UploadKeys;
   userToken: string;
+  WP_Settings: any;
 };
 export const loader: LoaderFunction = async ({ request }) => {
   // const formData = new FormData();
@@ -39,35 +41,35 @@ export const loader: LoaderFunction = async ({ request }) => {
   //   console.log("result", result);
   // }
 
-  await requireUserSession(request);
+  // await requireUserSession(request);
   if (process.env.NODE_ENV !== "development") {
-    const notFound = new Response(null, {
-      status: 404,
-      statusText: "Not Found",
-    });
-    const JWTUser = await getJWTUserDataFromSession(request);
-    if (!JWTUser) throw notFound;
-
-    const user = await User.API.getUser(JWTUser.user.user_email, "EMAIL");
-    if (!user || user instanceof Error) throw notFound;
-
-    const isAdmin = user.roles.nodes.find((n) => n.name === USER_ROLES.ADMIN);
-    if (!isAdmin) throw notFound;
+    // const notFound = new Response(null, {
+    //   status: 404,
+    //   statusText: "Not Found",
+    // });
+    // const JWTUser = await getJWTUserDataFromSession(request);
+    // if (!JWTUser) throw notFound;
+    // const user = await User.API.getUser(JWTUser.user.user_email, "EMAIL");
+    // if (!user || user instanceof Error) throw notFound;
+    // const isAdmin = user.roles.nodes.find((n) => n.name === USER_ROLES.ADMIN);
+    // if (!isAdmin) throw notFound;
   }
   const session = await getSession(request);
   const userToken = session.get("user");
 
-  const uploadKeys = User.Utils.getUploadKeys(userToken);
-
+  const uploadKeys = userToken ? User.Utils.getUploadKeys(userToken) : null;
+  const WP_Settings = undefined;
   return json({
     uploadKeys,
     userToken,
+    WP_Settings,
   });
 };
 
 export default function FeedView() {
-  const { uploadKeys, userToken } = useLoaderData<iLoaderData>();
-  console.log("Rendering FeedView");
+  console.log(defaultNotificationSettings);
+  const { uploadKeys, userToken, WP_Settings } = useLoaderData<iLoaderData>();
+  console.log("Rendering FeedView", WP_Settings);
 
   const [count, setCount] = useState(0);
   const [editorDataJSON, setEditorDataJSON] = useState<string>("");

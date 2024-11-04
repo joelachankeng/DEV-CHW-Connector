@@ -64,6 +64,7 @@ const POST_QUERY_FIELDS = (userId: string): string => `
         name
         userId
         emojiId
+        emojiIcon
       }
       collection {
         count
@@ -321,10 +322,15 @@ export abstract class Feed {
       public static async unReactPost(
         userId: string,
         postId: string,
+        emojiId: string,
       ): Promise<string | Error> {
         return await GraphQL.mutate(gql`
         mutation MyMutation {
-          userUnReactPost(input: { postId: ${postId}, userId: ${userId} }) {
+          userUnReactPost(input: { 
+            postId: ${postId}, 
+            userId: ${userId},
+            emojiId: "${emojiId}"
+          }) {
             clientMutationId
             message
             success

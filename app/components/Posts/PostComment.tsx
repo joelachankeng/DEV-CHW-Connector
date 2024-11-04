@@ -24,11 +24,13 @@ export default function PostComment({
   comment,
   groupId,
   postId,
+  active = false,
   onSubmit,
 }: {
   comment: iWP_Comment;
   groupId: number | undefined;
   postId: number;
+  active?: boolean;
   onSubmit?: (comment: iWP_Comment) => void;
 }) {
   const { User } = useContext(AppContext);
@@ -211,6 +213,7 @@ export default function PostComment({
         )}
 
         <div
+          id={`comment-${comment.databaseId}`}
           className={classNames(
             `${commentId}-container comment-editor`,
             `relative mt-1 flex items-start gap-2.5`,
@@ -231,7 +234,12 @@ export default function PostComment({
             </Link>
           </div>
           <div className="w-full">
-            <div className="flex flex-1 flex-col rounded-[20px] bg-[#FFF5E5] px-5 py-2.5">
+            <div
+              className={classNames(
+                "flex flex-1 flex-col rounded-[20px] bg-[#FFF5E5] px-5 py-2.5",
+                active ? "border-4 border-chw-light-purple" : "",
+              )}
+            >
               <div className="mb-4">
                 <Link
                   to={`${APP_ROUTES.PROFILE}/${comment.commentsField.author.databaseId}`}

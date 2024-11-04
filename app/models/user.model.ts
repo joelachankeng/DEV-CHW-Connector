@@ -40,6 +40,7 @@ export type iWP_User = {
       code?: string;
       expiration?: string;
     };
+    notificationSettingsEncoded: string;
     notificationSettings: iNotificationSettings;
   };
 };
