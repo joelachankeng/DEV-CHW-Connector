@@ -7,7 +7,11 @@ import { PublicHealthAlert } from "~/controllers/publicHealthAlert.control";
 import { User } from "~/controllers/user.control";
 import { excerpts } from "~/utilities/excerpts";
 import { getRequestDomain } from "~/utilities/main";
-import { filterUserByNotificationSettings, isDevMode } from "../notifications";
+import {
+  filterUserByNotificationSettings,
+  isDevMode,
+  NOTIFICATION_TEST_EMAIL,
+} from "../notifications";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
@@ -79,15 +83,12 @@ export default async function publicHealthAlertHandler(
     let emails = pushUsers.map((m) => m.user_email);
     emails =
       process.env.NODE_ENV === "development"
-        ? ["jachankeng+1@hria.org"]
+        ? [NOTIFICATION_TEST_EMAIL]
         : emails;
     console.log("Sending push notifications to", emails);
 
     const result = await OneSignal.API.sendPushNotification({
-      emails:
-        process.env.NODE_ENV === "development"
-          ? ["jachankeng+1@hria.org"]
-          : emails,
+      emails: emails,
       headings: { en: "New Public Health Alert" },
       subtitle: { en: alert.title },
       contents: { en: excerpts(alert.content, { characters: 100 }) },

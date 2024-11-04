@@ -10,6 +10,7 @@ import {
   filterUserByNotificationSettings,
   getPostGroupType,
   isDevMode,
+  NOTIFICATION_TEST_EMAIL,
   validateSession,
 } from "../notifications";
 import { excerpts } from "~/utilities/excerpts";
@@ -210,7 +211,7 @@ export default async function reactionHandler(
     let emails = pushUsers.map((m) => m.user_email);
     emails =
       process.env.NODE_ENV === "development"
-        ? ["jachankeng+1@hria.org"]
+        ? [NOTIFICATION_TEST_EMAIL]
         : emails;
     console.log("Sending push notifications to", emails);
 

@@ -22,6 +22,8 @@ import type { iWP_Post, iWP_Post_Group_Type } from "~/models/post.model";
 import reactionHandler from "./notifications/reaction";
 import commentHandler from "./notifications/comment";
 
+export const NOTIFICATION_TEST_EMAIL = "jachankeng+1@hria.org";
+
 export default async (request: Request, context: Context) => {
   console.log("DEV MODE", isDevMode(request));
 
