@@ -8,6 +8,7 @@ import {
 } from "~/utilities/main";
 import {
   filterUserByNotificationSettings,
+  isDevMode,
   validateSession,
 } from "../notifications";
 import { excerpts } from "~/utilities/excerpts";
@@ -61,8 +62,10 @@ export default async function messageHandler(
     );
 
   //DEV MODE ===================================
-  if (UserPublic.Utils.userIsAdmin(recieverUser) === false)
-    return console.log("Reciever is not an admin");
+  if (isDevMode(request)) {
+    if (UserPublic.Utils.userIsAdmin(recieverUser) === false)
+      return console.log("Reciever is not an admin");
+  }
   //=================================================
 
   const excerpt = excerpts(

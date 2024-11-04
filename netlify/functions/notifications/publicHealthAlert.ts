@@ -7,7 +7,7 @@ import { PublicHealthAlert } from "~/controllers/publicHealthAlert.control";
 import { User } from "~/controllers/user.control";
 import { excerpts } from "~/utilities/excerpts";
 import { getRequestDomain } from "~/utilities/main";
-import { filterUserByNotificationSettings } from "../notifications";
+import { filterUserByNotificationSettings, isDevMode } from "../notifications";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
@@ -35,7 +35,9 @@ export default async function publicHealthAlertHandler(
     return console.error("Unable to get all users", allUsers);
 
   //DEV MODE ===================================
-  allUsers = allUsers.filter((u) => u.admin === true);
+  if (isDevMode(request)) {
+    allUsers = allUsers.filter((u) => u.admin === true);
+  }
   //=================================================
 
   const emailUsers = filterUserByNotificationSettings(

@@ -9,6 +9,7 @@ import {
 import {
   filterUserByNotificationSettings,
   getPostGroupType,
+  isDevMode,
   validateSession,
 } from "../notifications";
 import { excerpts } from "~/utilities/excerpts";
@@ -68,8 +69,10 @@ export default async function reactionHandler(
     return console.error("There was an error getting the poster", poster);
 
   //DEV MODE ===================================
-  if (UserPublic.Utils.userIsAdmin(poster) === false)
-    return console.log("Poster is not an admin");
+  if (isDevMode(request)) {
+    if (UserPublic.Utils.userIsAdmin(poster) === false)
+      return console.log("Poster is not an admin");
+  }
   //=================================================
 
   const title = `New Reaction`;

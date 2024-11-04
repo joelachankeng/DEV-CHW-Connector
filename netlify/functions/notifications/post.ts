@@ -15,6 +15,7 @@ import {
 } from "~/utilities/main";
 import {
   filterUserByNotificationSettings,
+  isDevMode,
   validateSession,
 } from "../notifications";
 import { excerpts } from "~/utilities/excerpts";
@@ -110,7 +111,9 @@ export default async function postHandler(request: Request, context: Context) {
   if (members instanceof Error) return console.error(members);
 
   //DEV MODE ===================================
-  members = members.filter((u) => u.admin === true);
+  if (isDevMode(request)) {
+    members = members.filter((u) => u.admin === true);
+  }
   //=================================================
 
   const uniqueMembers: iGroupMember[] = [];

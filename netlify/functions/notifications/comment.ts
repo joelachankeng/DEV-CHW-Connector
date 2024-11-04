@@ -9,6 +9,7 @@ import {
 import {
   filterUserByNotificationSettings,
   getPostGroupType,
+  isDevMode,
   validateSession,
 } from "../notifications";
 import { excerpts } from "~/utilities/excerpts";
@@ -136,11 +137,13 @@ export default async function commentHandler(
     return console.error("Unable to get notification settings", usersSettings);
 
   //DEV MODE ===================================
-  usersSettings = usersSettings.filter((u) => {
-    if (u.admin === true) return true;
-    console.log("User is not an admin", u);
-    return false;
-  });
+  if (isDevMode(request)) {
+    usersSettings = usersSettings.filter((u) => {
+      if (u.admin === true) return true;
+      console.log("User is not an admin", u);
+      return false;
+    });
+  }
   //=================================================
 
   const emailUsers = filterUserByNotificationSettings(
