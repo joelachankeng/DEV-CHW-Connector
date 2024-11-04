@@ -143,11 +143,11 @@ export default async function reactionHandler(
   const postExcerpt = excerpts(postData.postContent, { characters: 100 });
 
   const groupType = getPostGroupType(postData.originalPost);
-  if (!groupType) return console.error("Could not get group type");
+  if (!groupType) return console.error("Could not get group type ");
 
   NotificationControl.API.create({
     id: 0, // SQL will auto-increment the ID
-    user_id: postData.originalPost.author.node.databaseId,
+    user_id: postData.authorId,
     type: postType as iWP_NotificationTypes,
     group_type: groupType.type,
     user_url: `${APP_ROUTES.PROFILE}/${currentUser.databaseId}`,
@@ -162,7 +162,7 @@ export default async function reactionHandler(
   });
 
   const users = await User.API.getNotificationSettings({
-    userIds: [postData.originalPost.author.node.databaseId.toString()],
+    userIds: [postData.authorId],
   });
 
   if (!users || users instanceof Error)
@@ -182,8 +182,6 @@ export default async function reactionHandler(
         : settings["Community Groups"];
     return setting.Reactions.pushNotifications === true;
   });
-
-  return;
 
   if (emailUsers.length > 0) {
     const bcc = emailUsers.map((m) => m.user_email).join(", ");
