@@ -81,9 +81,9 @@ export default async function publicHealthAlertHandler(
 
     const result = await OneSignal.API.sendPushNotification({
       emails:
-        process.env.NODE_ENV === "production"
-          ? emails
-          : ["jachankeng+1@hria.org"],
+        process.env.NODE_ENV === "development"
+          ? ["jachankeng+1@hria.org"]
+          : emails,
       headings: { en: "New Public Health Alert" },
       subtitle: { en: alert.title },
       contents: { en: excerpts(alert.content, { characters: 100 }) },
